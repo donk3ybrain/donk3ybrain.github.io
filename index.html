@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RCSJ Gloucester Campus Navigator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Leaflet CSS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --accent: #edab1e;
+      --border: #333;
+      --muted: #eee;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      color: #eee;
+    }
+
+    header {
+      padding: 0.75rem 1rem;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      gap: 0.5rem;
+      align-items: center;
+      background: #005696;
+      z-index: 1000;
+    }
+
+    .title {
+      font-weight: 600;
+	  background: #005696;
+	  text-align: center;
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+
+    select, button {
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+    }
+
+    button {
+      background: var(--accent);
+      color: #fff;
+      border: 1px solid #005696;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    button:disabled {
+      background: #edab1e;
+      cursor: default;
+    }
+
+    #map {
+      flex: 1;
+      width: 100%;
+    }
+
+    .directions {
+      border-top: 1px solid var(--border);
+      padding: 0.75rem 1rem;
+      max-height: 35vh;
+      overflow-y: auto;
+      background: #005696;
+    }
+
+    .directions h3 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1rem;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .step {
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+    }
+
+    /* Pulsing blue dot */
+    .pulse {
+      width: 16px;
+      height: 16px;
+      background: #2a93ff;
+      border-radius: 50%;
+      box-shadow: 0 0 0 rgba(42,147,255, 0.7);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(42,147,255, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 20px rgba(42,147,255, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(42,147,255, 0);
+      }
+    }
+
+    @media (max-width: 600px) {
+      .title {
+        display: none;
+      }
+    }
+  </style>
+</head>
+
+<body>
+	<div class="title">RCSJ Gloucester Campus Map</div>
+  <header>
+    <select id="start">Origin</select>
+    <select id="end">Destination</select>
+
+    <button id="go" disabled>Go</button>
+    <span style="content-align: right"><button id="locate">Find Me</button></span>
+  </header>
+
+  <div id="map"></div>
+
+  <div class="directions" id="directions">
+    <h3>Directions</h3>
+    <div class="meta" id="meta"></div>
+    <div id="steps">Choose a start and end point to begin.</div>
+  </div>
+
+  <!-- Leaflet JS -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+/* ---------- CONFIG ---------- */
+
+const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjM3MTk1YWVkZThkNjQzZjRiMDI3YTA4YTA4MDMzMzA1IiwiaCI6Im11cm11cjY0In0=";
+
+/* Building entrances (lat, lon) */
+const BUILDINGS = [
+  { name: "Allied Health Center", coords: [39.782878, -75.1230191] },
+  { name: "Behavioral Science - Back", coords: [39.7796022, -75.1209136] },
+  { name: "Behavioral Science - Main", coords: [39.7795505, -75.1216443] },
+  { name: "Behavioral Science - Side", coords: [39.7794936, -75.1210346] },
+  { name: "Bookstore", coords: [39.7809546, -75.1218213] },
+  { name: "Business & Corporate - Back A", coords: [39.7799038, -75.1195415] },
+  { name: "Business & Corporate - Back B", coords: [39.7797477, -75.1197277] },
+  { name: "Business & Corporate - Main", coords: [39.7801545, -75.1200946] },
+  { name: "Career & Technical Education", coords: [39.7788279, -75.1285468] },
+  { name: "College Center - Back", coords: [39.7815536, -75.1212767] },
+  { name: "College Center - Cafeteria", coords: [39.7815035, -75.1208687] },
+  { name: "College Center - Front", coords: [39.7812599, -75.1210383] },
+  { name: "College Center - Main", coords: [39.7813882, -75.1208947] },
+  { name: "College Center - Side", coords: [39.7813314, -75.1215967] },
+  { name: "Education & Humanities - Side A", coords: [39.7809831,-75.1202681] },
+  { name: "Education & Humanities - Side B", coords: [39.7807157, -75.120512] },
+  { name: "Education & Humanities - Side C", coords: [39.7812582, -75.119765] },
+  { name: "Education & Humanities - Side D1", coords: [39.781197, -75.120702] },
+  { name: "Education & Humanities - Side D2", coords: [39.781318, -75.120579] },
+  { name: "Health Sciences - Alt", coords: [39.7795976, -75.1251004] },
+  { name: "Health Sciences - Main", coords: [39.7797251, -75.1252505] },
+  { name: "Law & Justice - Main", coords: [39.7815494, -75.123452] },
+  { name: "Library - Alt", coords: [39.7808008, -75.1217652] },
+  { name: "Library - Back", coords: [39.7807886, -75.1220539] },
+  { name: "Library - Main", coords: [39.7805522, -75.1216513] },
+  { name: "Math & Engineering - Back", coords: [39.7799327, -75.1219634] },
+  { name: "Math & Engineering - Main", coords: [39.7797271, -75.1223055] },
+  { name: "Math & Engineering - Side A", coords: [39.7801541, -75.1224021] },
+  { name: "Math & Engineering - Side B", coords: [39.7796644, -75.121962] },
+  { name: "Medical Arts - Main", coords: [39.7816786, -75.1196886] },
+  { name: "Nursing & Health Professions - Back", coords: [39.779229, -75.1205182] },
+  { name: "Nursing & Health Professions - Main", coords: [39.7790224, -75.1209711] },
+  { name: "Physical Education - Main", coords: [39.7819393, -75.122689] },
+  { name: "Scott Hall - Back", coords: [39.7807653, -75.1224492] },
+  { name: "Scott Hall - Back", coords: [39.7811138, -75.1226172] },
+  { name: "Scott Hall - Main", coords: [39.7806277, -75.1231511] },
+  { name: "Scott Hall - Side", coords: [39.7804118, -75.1225503] },
+  { name: "Scott Hall", coords: [39.781022, -75.1237656] },
+  { name: "Security", coords: [39.7824545, -75.1235807] },
+  { name: "Student Services - Back", coords: [39.780066, -75.1207621] },
+  { name: "Student Services - Main A", coords: [39.7802322, -75.1213217] },
+  { name: "Student Services - Main B", coords: [39.7801584, -75.1213155] },
+  { name: "Student Services - Side", coords: [39.7805153, -75.1209092] }
+];
+
+/* ---------- GROUP BUILDINGS ---------- */
+
+function baseName(name) {
+  return name.split(" - ")[0].trim();
+}
+
+const BUILDING_GROUPS = {};
+BUILDINGS.forEach(b => {
+  const base = baseName(b.name);
+  if (!BUILDING_GROUPS[base]) BUILDING_GROUPS[base] = [];
+  BUILDING_GROUPS[base].push(b);
+});
+
+/* ---------- POPULATE SELECTS ---------- */
+
+const startSel = document.getElementById("start");
+const endSel = document.getElementById("end");
+const goBtn = document.getElementById("go");
+
+function populateBuildings(sel, includeCurrent = false) {
+  sel.innerHTML = "<option value=''>Select</option>";
+
+  if (includeCurrent) {
+    sel.innerHTML += "<option value='_current'>Use My Location</option>";
+  }
+
+  Object.keys(BUILDING_GROUPS).forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+populateBuildings(startSel, true);
+populateBuildings(endSel, false);
+
+
+function updateButton() {
+  goBtn.disabled = !(startSel.value && endSel.value && startSel.value !== endSel.value);
+}
+
+startSel.addEventListener("change", updateButton);
+endSel.addEventListener("change", updateButton);
+
+/* ---------- MAP SETUP ---------- */
+
+const map = L.map("map").setView([39.78, -75.122], 17);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19
+}).addTo(map);
+
+/* ---------- USER LOCATION MARKER ---------- */
+
+const userIcon = L.divIcon({
+  className: "pulse",
+  iconSize: [16, 16]
+});
+
+let userMarker = null;
+
+/* ---------- CAMPUS BOUNDS + PARKING LOTS ---------- */
+
+const CAMPUS_BOUNDS = {
+  north: 39.7836,
+  south: 39.7775,
+  east: -75.1180,
+  west: -75.1288
+};
+
+const PARKING_LOTS = [
+  { name: "Parking Lot D1", coords: [39.780090, -75.123866] },
+  { name: "Parking Lot D2", coords: [39.7788730, -75.1223550] },
+  { name: "Parking Lot E", coords: [39.7789649, -75.1193023] }
+];
+
+function isOnCampus([lat, lng]) {
+  return (
+    lat <= CAMPUS_BOUNDS.north &&
+    lat >= CAMPUS_BOUNDS.south &&
+    lng >= CAMPUS_BOUNDS.west &&
+    lng <= CAMPUS_BOUNDS.east
+  );
+}
+
+function nearestParkingLot(userCoords) {
+  let best = null;
+
+  PARKING_LOTS.forEach(lot => {
+    const d = dist(userCoords, lot.coords);
+    if (!best || d < best.d) best = { ...lot, d };
+  });
+
+  return best;
+}
+
+/* ---------- DISTANCE + CLOSEST ENTRANCE ---------- */
+
+function dist(a, b) {
+  const R = 6371e3;
+  const toRad = x => x * Math.PI / 180;
+
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+
+  const h = Math.sin(dLat/2)**2 +
+            Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function closestEntrances(startBuilding, endBuilding) {
+  const starts = BUILDING_GROUPS[startBuilding];
+  const ends = BUILDING_GROUPS[endBuilding];
+
+  let best = null;
+
+  starts.forEach(s => {
+    ends.forEach(e => {
+      const d = dist(s.coords, e.coords);
+      if (!best || d < best.d) {
+        best = { start: s, end: e, d };
+      }
+    });
+  });
+
+  return best;
+}
+
+/* ---------- ROUTING ---------- */
+
+async function getRoute(start, end, profile = "foot-walking") {
+
+  const body = {
+    coordinates: [
+      [start[1], start[0]],
+      [end[1], end[0]]
+    ]
+  };
+
+const res = await fetch(
+  `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
+    {
+      method: "POST",
+      headers: {
+        "Authorization": ORS_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    }
+  );
+
+  if (!res.ok) throw new Error("ORS HTTP error: " + res.status);
+  return res.json();
+}
+
+let routeLayer = null;
+let startMarker = null;
+let endMarker = null;
+
+function drawRoute(geojson) {
+  if (routeLayer) map.removeLayer(routeLayer);
+
+  routeLayer = L.geoJSON(geojson, {
+    style: { color: "#00539f", weight: 5 }
+  }).addTo(map);
+
+  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+}
+
+function showDirections(routeProps) {
+  const meta = document.getElementById("meta");
+  const stepsDiv = document.getElementById("steps");
+
+  const distKm = (routeProps.summary.distance / 1000).toFixed(2) + " km";
+  const timeMin = Math.round(routeProps.summary.duration / 60) + " min";
+
+  meta.textContent = `${distKm} • ${timeMin}`;
+
+  stepsDiv.innerHTML = "";
+  routeProps.segments[0].steps.forEach(s => {
+    const div = document.createElement("div");
+    div.className = "step";
+    div.textContent = s.instruction;
+    stepsDiv.appendChild(div);
+  });
+}
+
+/* ---------- GEOLOCATION ---------- */
+
+function getUserLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject("Your device does not support GPS.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve([pos.coords.latitude, pos.coords.longitude]),
+      err => {
+        if (err.code === 1) reject("GPS permission denied.");
+        else reject("Unable to retrieve GPS location.");
+      },
+      { enableHighAccuracy: true }
+    );
+  });
+}
+
+/* ---------- LOCATE ME BUTTON ---------- */
+
+document.getElementById("locate").addEventListener("click", async () => {
+  try {
+    const coords = await getUserLocation();
+
+    if (userMarker) map.removeLayer(userMarker);
+
+    userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
+    map.setView(coords, 18);
+
+    userMarker.bindPopup("You are here").openPopup();
+
+  } catch (err) {
+    alert(err);
+  }
+});
+
+/* ---------- GO BUTTON ---------- */
+
+goBtn.addEventListener("click", async () => {
+  const startBuilding = startSel.value;
+  const endBuilding = endSel.value;
+
+  let startCoords;
+  let startName;
+
+  if (startBuilding === "_current") {
+    try {
+      startCoords = await getUserLocation();
+      startName = "Your Location";
+    } catch (err) {
+      alert(err);
+      return;
+    }
+  } else {
+    const { start } = closestEntrances(startBuilding, endBuilding);
+    startCoords = start.coords;
+    startName = start.name;
+  }
+  
+  // If starting from current location AND off campus → route to nearest parking lot
+if (startBuilding === "_current" && !isOnCampus(startCoords)) {
+    const nearest = nearestParkingLot(startCoords);
+
+    // Remove old markers
+    if (startMarker) map.removeLayer(startMarker);
+    if (endMarker) map.removeLayer(endMarker);
+
+    startMarker = L.marker(startCoords, { icon: userIcon }).addTo(map).bindPopup("Your Location");
+    endMarker = L.marker(nearest.coords).addTo(map).bindPopup(nearest.name);
+
+    // Request route
+    const data = await getRoute(startCoords, nearest.coords, "driving-car");
+
+    if (data.features && data.features.length > 0) {
+        const route = data.features[0];
+        drawRoute(route.geometry);
+        showDirections(route.properties);
+    }
+
+    return; // stop normal building routing
+}
+
+  const { end } = closestEntrances(
+    startBuilding === "_current" ? endBuilding : startBuilding,
+    endBuilding
+  );
+  const endCoords = end.coords;
+
+  if (startMarker) map.removeLayer(startMarker);
+  if (endMarker) map.removeLayer(endMarker);
+
+  startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
+  endMarker = L.marker(endCoords).addTo(map).bindPopup(end.name);
+
+  const meta = document.getElementById("meta");
+  const stepsDiv = document.getElementById("steps");
+  meta.textContent = "";
+  stepsDiv.textContent = "Finding walking route...";
+
+  let data;
+  try {
+    data = await getRoute(startCoords, endCoords);
+  } catch (err) {
+    console.error(err);
+    stepsDiv.textContent = "Error contacting routing service.";
+    return;
+  }
+
+  if (!data.features || data.features.length === 0) {
+    stepsDiv.textContent = "No walking route found.";
+    return;
+  }
+
+  const route = data.features[0];
+  drawRoute(route.geometry);
+  showDirections(route.properties);
+});
+</script>
+
+</body>
+</html>
+
