@@ -13,6 +13,7 @@
       --accent: #edab1e;
       --border: #333;
       --muted: #eee;
+	  --vh: 1vh;
     }
 
     body {
@@ -20,7 +21,7 @@
       font-family: system-ui, sans-serif;
       display: flex;
       flex-direction: column;
-      height: 100vh;
+      height: calc(var(--vh) * 100);
       color: #eee;
     }
 
@@ -47,14 +48,24 @@
       border-radius: 999px;
       font-size: 0.85rem;
     }
+	
+	button {
+	  border: 1px solid #eee;
+	}
 
-    button {
+    .prm-btn {
       background: var(--accent);
-      color: #fff;
-      border: 1px solid #005696;
+      color: #eee;
       cursor: pointer;
       font-weight: 500;
     }
+	
+	.alt-btn {
+	  background: #666;
+	  color: #eee;
+      cursor: pointer;
+      font-weight: 500;
+	}
 
     button:disabled {
       background: #edab1e;
@@ -116,6 +127,20 @@
       .title {
         display: none;
       }
+	  header { 
+		flex-direction: column;
+		align-items: stretch;
+		padding: 0.5rem;
+	  } 
+	  header select,
+	  header button {
+		width: 100%;
+		margin: 0.25rem 0;
+	  }
+	  .directions {
+		max-height: 25vh;
+		font-size: 0.8rem;
+	  }
     }
   </style>
 </head>
@@ -123,11 +148,11 @@
 <body>
 	<div class="title">RCSJ Gloucester Campus Map</div>
   <header>
-    <select id="start">Origin</select>
-    <select id="end">Destination</select>
+    <select id="start"></select>
+    <select id="end"></select>
 
-    <button id="go" disabled>Go</button>
-    <span style="content-align: right"><button id="locate">Find Me</button></span>
+    <button id="go" class="prm-btn" disabled>Go</button>
+    <button id="locate" class="alt-btn">Find Me</button>
   </header>
 
   <div id="map"></div>
@@ -142,21 +167,25 @@
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
 <script>
-/* ---------- CONFIG ---------- */
+function updateVH() {
+  document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+}
+updateVH();
+window.addEventListener('resize', updateVH);
 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjM3MTk1YWVkZThkNjQzZjRiMDI3YTA4YTA4MDMzMzA1IiwiaCI6Im11cm11cjY0In0=";
 
 /* Building entrances (lat, lon) */
 const BUILDINGS = [
-  { name: "Allied Health Center", coords: [39.782878, -75.1230191] },
+  { name: "Allied Health Center - Main", coords: [39.782878, -75.1230191] },
   { name: "Behavioral Science - Back", coords: [39.7796022, -75.1209136] },
   { name: "Behavioral Science - Main", coords: [39.7795505, -75.1216443] },
   { name: "Behavioral Science - Side", coords: [39.7794936, -75.1210346] },
-  { name: "Bookstore", coords: [39.7809546, -75.1218213] },
+  { name: "Bookstore - Main", coords: [39.7809546, -75.1218213] },
   { name: "Business & Corporate - Back A", coords: [39.7799038, -75.1195415] },
   { name: "Business & Corporate - Back B", coords: [39.7797477, -75.1197277] },
   { name: "Business & Corporate - Main", coords: [39.7801545, -75.1200946] },
-  { name: "Career & Technical Education", coords: [39.7788279, -75.1285468] },
+  { name: "Career & Technical Education - Main", coords: [39.7788279, -75.1285468] },
   { name: "College Center - Back", coords: [39.7815536, -75.1212767] },
   { name: "College Center - Cafeteria", coords: [39.7815035, -75.1208687] },
   { name: "College Center - Front", coords: [39.7812599, -75.1210383] },
@@ -181,8 +210,8 @@ const BUILDINGS = [
   { name: "Nursing & Health Professions - Back", coords: [39.779229, -75.1205182] },
   { name: "Nursing & Health Professions - Main", coords: [39.7790224, -75.1209711] },
   { name: "Physical Education - Main", coords: [39.7819393, -75.122689] },
-  { name: "Scott Hall - Back", coords: [39.7807653, -75.1224492] },
-  { name: "Scott Hall - Back", coords: [39.7811138, -75.1226172] },
+  { name: "Scott Hall - Back A", coords: [39.7807653, -75.1224492] },
+  { name: "Scott Hall - Back B", coords: [39.7811138, -75.1226172] },
   { name: "Scott Hall - Main", coords: [39.7806277, -75.1231511] },
   { name: "Scott Hall - Side", coords: [39.7804118, -75.1225503] },
   { name: "Scott Hall", coords: [39.781022, -75.1237656] },
@@ -212,8 +241,8 @@ const startSel = document.getElementById("start");
 const endSel = document.getElementById("end");
 const goBtn = document.getElementById("go");
 
-function populateBuildings(sel, includeCurrent = false) {
-  sel.innerHTML = "<option value=''>Select</option>";
+function populateBuildings(sel, includeCurrent = false, placeholder = "Select") {
+  sel.innerHTML = `<option value=''>${placeholder}</option>`;
 
   if (includeCurrent) {
     sel.innerHTML += "<option value='_current'>Use My Location</option>";
@@ -227,9 +256,8 @@ function populateBuildings(sel, includeCurrent = false) {
   });
 }
 
-populateBuildings(startSel, true);
-populateBuildings(endSel, false);
-
+populateBuildings(startSel, true, "Start");
+populateBuildings(endSel, false, "End");
 
 function updateButton() {
   goBtn.disabled = !(startSel.value && endSel.value && startSel.value !== endSel.value);
@@ -469,17 +497,34 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
     return; // stop normal building routing
 }
 
-  const { end } = closestEntrances(
-    startBuilding === "_current" ? endBuilding : startBuilding,
-    endBuilding
-  );
-  const endCoords = end.coords;
+let endCoords;
+let endName;
+
+// If starting from current location, only compute closest entrance of destination
+if (startBuilding === "_current") {
+    const ends = BUILDING_GROUPS[endBuilding];
+    let bestEnd = null;
+
+    ends.forEach(e => {
+        const d = dist(startCoords, e.coords);
+        if (!bestEnd || d < bestEnd.d) bestEnd = { ...e, d };
+    });
+
+    endCoords = bestEnd.coords;
+    endName = bestEnd.name;
+
+} else {
+    // Normal building-to-building routing
+    const { end } = closestEntrances(startBuilding, endBuilding);
+    endCoords = end.coords;
+    endName = end.name;
+}
 
   if (startMarker) map.removeLayer(startMarker);
   if (endMarker) map.removeLayer(endMarker);
 
   startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
-  endMarker = L.marker(endCoords).addTo(map).bindPopup(end.name);
+  endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
 
   const meta = document.getElementById("meta");
   const stepsDiv = document.getElementById("steps");
@@ -505,7 +550,6 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
   showDirections(route.properties);
 });
 </script>
-
 </body>
 </html>
 
