@@ -50,7 +50,7 @@
     }
 	
 	button {
-	  border: 1px solid #eee;
+	  border: 1px solid #bbb;
 	}
 
     .prm-btn {
@@ -66,10 +66,13 @@
       cursor: pointer;
       font-weight: 500;
 	}
+	
+	.prm-btn:hover, .alt-btn:hover {
+	  border: 2px solid #fff;
+	}
 
     button:disabled {
       background: #edab1e;
-      cursor: default;
     }
 
     #map {
@@ -214,8 +217,8 @@ const BUILDINGS = [
   { name: "Scott Hall - Back B", coords: [39.7811138, -75.1226172] },
   { name: "Scott Hall - Main", coords: [39.7806277, -75.1231511] },
   { name: "Scott Hall - Side", coords: [39.7804118, -75.1225503] },
-  { name: "Scott Hall", coords: [39.781022, -75.1237656] },
-  { name: "Security", coords: [39.7824545, -75.1235807] },
+  { name: "Scott Hall - Stairs", coords: [39.781022, -75.1237656] },
+  { name: "Security - Main", coords: [39.7824545, -75.1235807] },
   { name: "Student Services - Back", coords: [39.780066, -75.1207621] },
   { name: "Student Services - Main A", coords: [39.7802322, -75.1213217] },
   { name: "Student Services - Main B", coords: [39.7801584, -75.1213155] },
@@ -497,7 +500,7 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
     return; // stop normal building routing
 }
 
-let endCoords;
+  let endCoords;
 let endName;
 
 // If starting from current location, only compute closest entrance of destination
