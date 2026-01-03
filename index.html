@@ -1,9 +1,11 @@
 <!DOCTYPE html>
 <html lang="en">
+/* © 2026 - dleeder@rcsj.edu */
 <head>
   <meta charset="UTF-8" />
   <title>RCSJ Gloucester Campus Navigator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
   <style>
@@ -110,7 +112,6 @@
       font-size: 0.85rem;
     }
 
-    /* Pulsing blue dot */
     .pulse {
       width: 16px;
       height: 16px;
@@ -148,13 +149,12 @@
 		margin: 0.25rem 0;
 	  }
 	  .directions {
-		max-height: 10vh;
-		font-size: 0.8rem;
+		max-height: 15vh;
+		font-size: 0.7rem;
 	  }
     }
   </style>
 </head>
-
 <body>
 	<div class="title">RCSJ Gloucester Campus Map</div>
   <header>
@@ -184,7 +184,6 @@ window.addEventListener('resize', updateVH);
 
 const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjM3MTk1YWVkZThkNjQzZjRiMDI3YTA4YTA4MDMzMzA1IiwiaCI6Im11cm11cjY0In0=";
 
-/* Building entrances (lat, lon) */
 const BUILDINGS = [
   { name: "Allied Health Center - Main", coords: [39.782878, -75.1230191] },
   { name: "Behavioral Science - Back", coords: [39.7796022, -75.1209136] },
@@ -384,7 +383,7 @@ function drawRoute(geojson) {
   if (routeLayer) map.removeLayer(routeLayer);
 
   routeLayer = L.geoJSON(geojson, {
-    style: { color: "#00539f", weight: 5 }
+    style: { color: "#005696", weight: 5 }
   }).addTo(map);
 
   map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
@@ -394,18 +393,33 @@ function showDirections(routeProps) {
   const meta = document.getElementById("meta");
   const stepsDiv = document.getElementById("steps");
 
-  const distKm = (routeProps.summary.distance / 1000).toFixed(2) + " km";
+  const meters = routeProps.summary.distance;
+  const feet = (meters * 3.28084).toFixed(0);
+  const miles = (meters / 1609.34).toFixed(2);
   const timeMin = Math.round(routeProps.summary.duration / 60) + " min";
 
-  meta.textContent = `${distKm} • ${timeMin}`;
+  meta.textContent = `${feet} ft • ${miles} mi • ${timeMin}`;
+
 
   stepsDiv.innerHTML = "";
   routeProps.segments[0].steps.forEach(s => {
-    const div = document.createElement("div");
-    div.className = "step";
-    div.textContent = s.instruction;
-    stepsDiv.appendChild(div);
-  });
+  const div = document.createElement("div");
+  div.className = "step";
+
+  const meters = s.distance;
+  const feet = (meters * 3.28084).toFixed(0);
+  const miles = (meters / 1609.34).toFixed(2);
+
+  let distText;
+  if (meters < 200) {
+    distText = `${feet} ft`;
+  } else {
+    distText = `${miles} mi`;
+  }
+
+  div.textContent = `${s.instruction} (${distText})`;
+  stepsDiv.appendChild(div);
+});
 }
 
 function getUserLocation() {
@@ -463,16 +477,23 @@ goBtn.addEventListener("click", async () => {
   
   // If starting from current location AND off campus → route to nearest parking lot
 if (startBuilding === "_current" && !isOnCampus(startCoords)) {
-    const nearest = nearestParkingLot(startCoords);
 
-    // Remove old markers
+    const ends = BUILDING_GROUPS[endBuilding];
+    let bestEnd = null;
+
+    ends.forEach(e => {
+        const d = dist(startCoords, e.coords);
+        if (!bestEnd || d < bestEnd.d) bestEnd = { ...e, d };
+    });
+
+    const nearest = nearestParkingLot(bestEnd.coords);
+
     if (startMarker) map.removeLayer(startMarker);
     if (endMarker) map.removeLayer(endMarker);
 
     startMarker = L.marker(startCoords, { icon: userIcon }).addTo(map).bindPopup("Your Location");
     endMarker = L.marker(nearest.coords).addTo(map).bindPopup(nearest.name);
 
-    // Request route
     const data = await getRoute(startCoords, nearest.coords, "driving-car");
 
     if (data.features && data.features.length > 0) {
@@ -486,8 +507,7 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
   let endCoords;
 let endName;
-
-// If starting from current location, only compute closest entrance of destination
+	
 if (startBuilding === "_current") {
     const ends = BUILDING_GROUPS[endBuilding];
     let bestEnd = null;
@@ -539,5 +559,4 @@ if (startBuilding === "_current") {
 
 </body>
 </html>
-
 
