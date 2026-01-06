@@ -230,6 +230,11 @@ const BUILDINGS = [
   { name: "Student Services - Side", coords: [39.7805153, -75.1209092] }
 ];
 
+let watchId = null;
+let lastRerouteTime = 0;
+let lastRerouteCoords = null;
+let navigationActive = false;
+
 function baseName(name) {
   return name.split(" - ")[0].trim();
 }
@@ -554,10 +559,65 @@ if (startBuilding === "_current") {
   const route = data.features[0];
   drawRoute(route.geometry);
   showDirections(route.properties);
+  navigationActive = true;
+
+if (watchId) navigator.geolocation.clearWatch(watchId);
+
+watchId = navigator.geolocation.watchPosition(
+  pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
+  err => console.error("GPS error:", err),
+  { enableHighAccuracy: true, maximumAge: 1000 }
+);
+
 });
+
+async function handleLiveUpdate(coords) {
+  if (!navigationActive) return;
+
+  // Update moving dot
+  if (userMarker) userMarker.setLatLng(coords);
+  else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
+
+  const now = Date.now();
+  
+  // Check if user reached destination
+if (endMarker) {
+    const dest = endMarker.getLatLng();
+    const d = dist(coords, [dest.lat, dest.lng]);
+
+    if (d < 15) {  // 15 meters is a good threshold
+        stopNavigation();
+        return;
+    }
+}
+
+  // Throttle rerouting
+  if (now - lastRerouteTime < 5000) return; // 10 seconds
+
+  // Distance threshold
+  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 10) return;
+
+  lastRerouteTime = now;
+  lastRerouteCoords = coords;
+
+  // Re-route to the same destination
+  try {
+    const data = await getRoute(coords, endMarker.getLatLng());
+    if (data.features && data.features.length > 0) {
+      const route = data.features[0];
+      drawRoute(route.geometry);
+      showDirections(route.properties);
+    }
+  } catch (err) {
+    console.error("Auto-reroute failed:", err);
+  }
+}
+function stopNavigation() {
+  navigationActive = false;
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+}
+
 </script>
 
 </body>
 </html>
-
-
