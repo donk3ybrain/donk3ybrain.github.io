@@ -585,17 +585,17 @@ if (endMarker) {
     const dest = endMarker.getLatLng();
     const d = dist(coords, [dest.lat, dest.lng]);
 
-    if (d < 15) {  // 15 meters is a good threshold
+    if (d < 10) {  // 10 meters is a good threshold
         stopNavigation();
         return;
     }
 }
 
   // Throttle rerouting
-  if (now - lastRerouteTime < 5000) return; // 10 seconds
+  if (now - lastRerouteTime < 1000) return; // 1 second
 
   // Distance threshold
-  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 10) return;
+  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 2) return;
 
   lastRerouteTime = now;
   lastRerouteCoords = coords;
@@ -621,3 +621,4 @@ function stopNavigation() {
 
 </body>
 </html>
+
