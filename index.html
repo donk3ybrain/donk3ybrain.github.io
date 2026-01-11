@@ -368,7 +368,10 @@ async function getRoute(start, end, profile = "foot-hiking") {
       [start[1], start[0]],
       [end[1], end[0]]
     ],
-	preference: "shortest"
+	preference: "shortest", 
+	options: {
+	  avoid_features: ["pavedroads"]
+	}
   };
 
 const res = await fetch(
@@ -625,6 +628,7 @@ function stopNavigation() {
 
 </body>
 </html>
+
 
 
 
