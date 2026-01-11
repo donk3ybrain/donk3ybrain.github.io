@@ -365,7 +365,7 @@ async function getRoute(start, end, profile = "foot-hiking") {
   };
 
 const res = await fetch(
-  `broken-truth-6a9a.dan-5e4.workers.dev/route?profile=${profile}`,
+  `https://broken-truth-6a9a.dan-5e4.workers.dev/route?profile=${profile}`,
   {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -618,6 +618,7 @@ function stopNavigation() {
 
 </body>
 </html>
+
 
 
 
