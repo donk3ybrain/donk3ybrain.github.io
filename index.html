@@ -182,8 +182,6 @@ function updateVH() {
 updateVH();
 window.addEventListener('resize', updateVH);
 
-const ORS_API_KEY = "eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjM3MTk1YWVkZThkNjQzZjRiMDI3YTA4YTA4MDMzMzA1IiwiaCI6Im11cm11cjY0In0=";
-
 const BUILDINGS = [
   { name: "Allied Health Center - Main", coords: [39.782878, -75.1230191] },
   { name: "Behavioral Science - Back", coords: [39.7796022, -75.1209136] },
@@ -367,16 +365,13 @@ async function getRoute(start, end, profile = "foot-hiking") {
   };
 
 const res = await fetch(
-  `https://api.openrouteservice.org/v2/directions/${profile}/geojson`,
-    {
-      method: "POST",
-      headers: {
-        "Authorization": ORS_API_KEY,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(body)
-    }
-  );
+  `broken-truth-6a9a.dan-5e4.workers.dev/route?profile=${profile}`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }
+);
 
   if (!res.ok) throw new Error("ORS HTTP error: " + res.status);
   return res.json();
@@ -623,6 +618,7 @@ function stopNavigation() {
 
 </body>
 </html>
+
 
 
 
