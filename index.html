@@ -594,17 +594,19 @@ if (endMarker) {
 }
 
   // Throttle rerouting
-  if (now - lastRerouteTime < 1000) return; // 1 second
+  if (now - lastRerouteTime < 3000) return; // 1 second
 
   // Distance threshold
-  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 2) return;
+  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 4) return;
 
   lastRerouteTime = now;
   lastRerouteCoords = coords;
 
   // Re-route to the same destination
   try {
-    const data = await getRoute(coords, endMarker.getLatLng());
+    if (!endMarker) return;
+    const dest = endMarker.getLatLng();
+    const data = await getRoute(coords, [dest.lat, dest.lng]);
     if (data.features && data.features.length > 0) {
       const route = data.features[0];
       drawRoute(route.geometry);
@@ -616,26 +618,17 @@ if (endMarker) {
 }
 function stopNavigation() {
   navigationActive = false;
-  if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
 }
+
+window.addEventListener('beforeunload', () => {
+  stopNavigation();
+});
 
 </script>
 
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
