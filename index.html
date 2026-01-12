@@ -368,17 +368,13 @@ async function getRoute(start, end, profile = "foot-hiking") {
       [start[1], start[0]],
       [end[1], end[0]]
     ],
-	preference: "shortest", 
-	options: {
-	  "profile_params": {
-        "weightings": {
-            "green": {
-                "factor": 0.8
-              }
-		}
-		}
-	}
-	}
+	 "preference": "shortest", // Requests shortest distance over fastest time
+  "options": {
+    "profile_params": {
+      "weightings": {
+        "green_factor": 1 // 0=normal, 1=prefer green over shorter route
+      }
+    }}}
   };
 
 const res = await fetch(
@@ -635,6 +631,7 @@ function stopNavigation() {
 
 </body>
 </html>
+
 
 
 
