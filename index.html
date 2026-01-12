@@ -370,7 +370,14 @@ async function getRoute(start, end, profile = "foot-hiking") {
     ],
 	preference: "shortest", 
 	options: {
-	  avoid_features: ["pavedroads"]
+	  "profile_params": {
+        "weightings": {
+            "green": {
+                "factor": 0.8
+              }
+		}
+		}
+	}
 	}
   };
 
@@ -628,6 +635,7 @@ function stopNavigation() {
 
 </body>
 </html>
+
 
 
 
