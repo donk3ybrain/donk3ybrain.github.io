@@ -541,7 +541,9 @@ if (startBuilding === "_current") {
   if (startMarker) map.removeLayer(startMarker);
   if (endMarker) map.removeLayer(endMarker);
 
-  startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
+  if (startBuilding !== "_current") {
+    startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
+  }
   endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
 
   const meta = document.getElementById("meta");
@@ -634,3 +636,4 @@ window.addEventListener('beforeunload', () => {
 
 </body>
 </html>
+
