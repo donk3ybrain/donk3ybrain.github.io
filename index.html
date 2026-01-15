@@ -484,7 +484,6 @@ goBtn.addEventListener("click", async () => {
     startName = start.name;
   }
   
-  // If starting from current location AND off campus → route to nearest parking lot
 if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
     const ends = BUILDING_GROUPS[endBuilding];
@@ -498,10 +497,14 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
     const nearest = nearestParkingLot(bestEnd.coords);
 
     if (startMarker) map.removeLayer(startMarker);
-    if (endMarker) map.removeLayer(endMarker);
+	if (endMarker) map.removeLayer(endMarker);
+	
+	if (startBuilding !== "_current") {
+    	startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
+	}
 
-    startMarker = L.marker(startCoords, { icon: userIcon }).addTo(map).bindPopup("Your Location");
-    endMarker = L.marker(nearest.coords).addTo(map).bindPopup(nearest.name);
+	endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
+
 
     const data = await getRoute(startCoords, nearest.coords, "driving-car");
 
@@ -578,13 +581,13 @@ watchId = navigator.geolocation.watchPosition(
 async function handleLiveUpdate(coords) {
   if (!navigationActive) return;
 
-  // Update moving dot
   if (userMarker) userMarker.setLatLng(coords);
   else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
 
+  map.setView(coords, map.getZoom(), { animate: true });
+
   const now = Date.now();
   
-  // Check if user reached destination
 if (endMarker) {
     const dest = endMarker.getLatLng();
     const d = dist(coords, [dest.lat, dest.lng]);
@@ -595,16 +598,13 @@ if (endMarker) {
     }
 }
 
-  // Throttle rerouting
   if (now - lastRerouteTime < 3000) return; // 1 second
 
-  // Distance threshold
   if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 4) return;
 
   lastRerouteTime = now;
   lastRerouteCoords = coords;
 
-  // Re-route to the same destination
   try {
     if (!endMarker) return;
     const dest = endMarker.getLatLng();
@@ -634,6 +634,7 @@ window.addEventListener('beforeunload', () => {
 
 </body>
 </html>
+
 
 
 
