@@ -112,28 +112,68 @@
       margin-bottom: 0.4rem;
       font-size: 0.85rem;
     }
+	
+.user-heading-wrapper {
+  position: relative;
+  width: 28px;
+  height: 28px;
+}
 
-    .pulse {
-      width: 16px;
-      height: 16px;
-      background: #edab1e;
-      border-radius: 50%;
-	  filter: drop-shadow(0 0 2px rgba(0, 86, 150, 1));
-      box-shadow: 0 0 0 rgba(0, 86, 150, 1);
-      animation: pulse 2s infinite;
-    }
+.user-heading-wrapper::after {
+  content: "";
+  position: absolute;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: rgba(0, 86, 150, .7);
+  top: 2px;
+  left: 2px;
+  animation: pulseRing 2s infinite;
+  transform-origin: center center;
+  z-index: -1; /* behind the marker */
+}
 
-    @keyframes pulse {
-      0% {
-        box-shadow: 0 0 0 0 rgba(0, 86, 150, 0.7);
-      }
-      70% {
-        box-shadow: 0 0 0 20px rgba(0, 86, 150, 0);
-      }
-      100% {
-        box-shadow: 0 0 0 0 rgba(0, 86, 150, 0);
-      }
-    }
+.user-heading-wrapper::before {
+  content: "";
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  background: rgba(237, 171, 30, 1);
+  border-radius: 50%;
+  top: 5px;
+  left: 5px;
+  box-shadow: 0 0 4px rgba(0,0,0,0.6);
+}
+
+/* Triangle arrow */
+.user-heading {
+  position: absolute;
+  top: -4px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: 7px solid transparent;
+  border-right: 7px solid transparent;
+  border-bottom: 20px solid #edab1e;
+  transform-origin: 50% 50%;
+}
+
+/* Pulse animation */
+@keyframes pulseRing {
+  0% {
+    transform: scale(1);
+    opacity: 0.7;
+  }
+  70% {
+    transform: scale(2.2);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
 
     @media (max-width: 700px) {
       .title {
@@ -289,9 +329,16 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 const userIcon = L.divIcon({
-  className: "pulse",
-  iconSize: [16, 16]
+  className: "",
+  html: `
+    <div class="user-heading-wrapper">
+      <div class="user-heading"></div>
+    </div>
+  `,
+  iconSize: [28, 28],
+  iconAnchor: [14, 14]
 });
+
 
 let userMarker = null;
 
@@ -518,7 +565,7 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 }
 
   let endCoords;
-let endName;
+  let endName;
 	
 if (startBuilding === "_current") {
     const ends = BUILDING_GROUPS[endBuilding];
@@ -578,11 +625,46 @@ watchId = navigator.geolocation.watchPosition(
 
 });
 
+function computeHeading(a, b) {
+  const toRad = x => x * Math.PI / 180;
+  const toDeg = x => x * 180 / Math.PI;
+
+  const dLon = toRad(b[1] - a[1]);
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+
+  const y = Math.sin(dLon) * Math.cos(lat2);
+  const x = Math.cos(lat1)*Math.sin(lat2) -
+            Math.sin(lat1)*Math.cos(lat2)*Math.cos(dLon);
+
+  let brng = toDeg(Math.atan2(y, x));
+  return (brng + 360) % 360;
+}
+
 async function handleLiveUpdate(coords) {
   if (!navigationActive) return;
 
-  if (userMarker) userMarker.setLatLng(coords);
-  else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
+if (userMarker) {
+    userMarker.setLatLng(coords);
+} else {
+    userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
+}
+
+let heading = null;
+
+if (pos.coords.heading !== null && !isNaN(pos.coords.heading)) {
+    heading = pos.coords.heading;
+} else if (lastRerouteCoords) {
+    heading = computeHeading(lastRerouteCoords, coords);
+}
+
+if (heading !== null) {
+    const el = userMarker.getElement();
+    if (el) {
+        el.style.transform = `rotate(${heading}deg)`;
+    }
+}
+
 
   map.setView(coords, map.getZoom(), { animate: true });
 
@@ -592,13 +674,13 @@ if (endMarker) {
     const dest = endMarker.getLatLng();
     const d = dist(coords, [dest.lat, dest.lng]);
 
-    if (d < 10) {  // 10 meters is a good threshold
+    if (d < 6) {
         stopNavigation();
         return;
     }
 }
 
-  if (now - lastRerouteTime < 3000) return; // 1 second
+  if (now - lastRerouteTime < 3000) return;
 
   if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 4) return;
 
@@ -618,6 +700,14 @@ if (endMarker) {
     console.error("Auto-reroute failed:", err);
   }
 }
+
+if (heading !== null) {
+    const el = userMarker.getElement();
+    if (el) {
+        el.style.transform = `rotate(${heading}deg)`;
+    }
+}
+
 function stopNavigation() {
   navigationActive = false;
   if (watchId) {
@@ -634,7 +724,3 @@ window.addEventListener('beforeunload', () => {
 
 </body>
 </html>
-
-
-
-
