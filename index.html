@@ -469,9 +469,10 @@ goBtn.addEventListener("click", async () => {
 
   let startCoords;
   let startName;
-  let endCoords;
-  let endName;
 
+  // -----------------------------
+  // 1. Determine START COORDS
+  // -----------------------------
   if (startBuilding === "_current") {
     try {
       startCoords = await getUserLocation();
@@ -485,57 +486,51 @@ goBtn.addEventListener("click", async () => {
     startCoords = start.coords;
     startName = start.name;
   }
-  
-if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
+  let endCoords;
+  let endName;
+
+  if (startBuilding === "_current") {
+    // Choose closest entrance to user
     const ends = BUILDING_GROUPS[endBuilding];
     let bestEnd = null;
 
     ends.forEach(e => {
-        const d = dist(startCoords, e.coords);
-        if (!bestEnd || d < bestEnd.d) bestEnd = { ...e, d };
-    });
-
-    const nearest = nearestParkingLot(bestEnd.coords);
-
-    if (startMarker) map.removeLayer(startMarker);
-	if (endMarker) map.removeLayer(endMarker);
-	
-	if (startBuilding !== "_current") {
-    	startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
-	}
-
-	endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
-
-
-    const data = await getRoute(startCoords, nearest.coords, "driving-car");
-
-    if (data.features && data.features.length > 0) {
-        const route = data.features[0];
-        drawRoute(route.geometry);
-        showDirections(route.properties);
-    }
-
-    return;
-}
-	
-if (startBuilding === "_current") {
-    const ends = BUILDING_GROUPS[endBuilding];
-    let bestEnd = null;
-
-    ends.forEach(e => {
-        const d = dist(startCoords, e.coords);
-        if (!bestEnd || d < bestEnd.d) bestEnd = { ...e, d };
+      const d = dist(startCoords, e.coords);
+      if (!bestEnd || d < bestEnd.d) bestEnd = { ...e, d };
     });
 
     endCoords = bestEnd.coords;
     endName = bestEnd.name;
 
-} else {
+  } else {
+    // Normal building → building routing
     const { end } = closestEntrances(startBuilding, endBuilding);
     endCoords = end.coords;
     endName = end.name;
-}
+  }
+
+  if (startBuilding === "_current" && !isOnCampus(startCoords)) {
+
+    const nearestLot = nearestParkingLot(endCoords);
+
+    if (startMarker) map.removeLayer(startMarker);
+    if (endMarker) map.removeLayer(endMarker);
+
+    endMarker = L.marker(nearestLot.coords)
+      .addTo(map)
+      .bindPopup(nearestLot.name);
+
+    const data = await getRoute(startCoords, nearestLot.coords, "driving-car");
+
+    if (data.features && data.features.length > 0) {
+      const route = data.features[0];
+      drawRoute(route.geometry);
+      showDirections(route.properties);
+    }
+
+    return; // stop here — off‑campus routing complete
+  }
 
   if (startMarker) map.removeLayer(startMarker);
   if (endMarker) map.removeLayer(endMarker);
@@ -543,6 +538,7 @@ if (startBuilding === "_current") {
   if (startBuilding !== "_current") {
     startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
   }
+
   endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
 
   const meta = document.getElementById("meta");
@@ -567,16 +563,16 @@ if (startBuilding === "_current") {
   const route = data.features[0];
   drawRoute(route.geometry);
   showDirections(route.properties);
+
   navigationActive = true;
 
-if (watchId) navigator.geolocation.clearWatch(watchId);
+  if (watchId) navigator.geolocation.clearWatch(watchId);
 
-watchId = navigator.geolocation.watchPosition(
-  pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
-  err => console.error("GPS error:", err),
-  { enableHighAccuracy: true, maximumAge: 1000 }
-);
-
+  watchId = navigator.geolocation.watchPosition(
+    pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
+    err => console.error("GPS error:", err),
+    { enableHighAccuracy: true, maximumAge: 1000 }
+  );
 });
 
 async function handleLiveUpdate(coords) {
@@ -635,5 +631,6 @@ window.addEventListener('beforeunload', () => {
 
 </body>
 </html>
+
 
 
