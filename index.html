@@ -469,6 +469,8 @@ goBtn.addEventListener("click", async () => {
 
   let startCoords;
   let startName;
+  let endCoords;
+  let endName;
 
   if (startBuilding === "_current") {
     try {
@@ -516,9 +518,6 @@ if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
     return;
 }
-
-  let endCoords;
-let endName;
 	
 if (startBuilding === "_current") {
     const ends = BUILDING_GROUPS[endBuilding];
@@ -636,4 +635,5 @@ window.addEventListener('beforeunload', () => {
 
 </body>
 </html>
+
 
