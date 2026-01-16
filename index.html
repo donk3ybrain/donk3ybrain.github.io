@@ -581,7 +581,9 @@ async function handleLiveUpdate(coords) {
   if (userMarker) userMarker.setLatLng(coords);
   else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
 
-  map.setView(coords, map.getZoom(), { animate: true });
+  if (startSel.value === "_current") {
+    map.setView(coords, map.getZoom(), { animate: true });
+  }
 
   const now = Date.now();
   
@@ -631,6 +633,7 @@ window.addEventListener('beforeunload', () => {
 
 </body>
 </html>
+
 
 
 
