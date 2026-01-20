@@ -91,6 +91,19 @@
 	  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
     }
 
+	.autocenter-box {
+	  position: absolute;
+  	  bottom: 2px;
+  	  right: 20px;
+  	  background: rgba(0,0,0,0.6);
+  	  padding: 6px 10px;
+  	  border-radius: 6px;
+  	  color: white;
+  	  font-size: 0.85rem;
+ 	  display: none;
+  	  z-index: 9999;
+	}
+
     .directions {
       padding: 0.75rem 1rem;
       max-height: 15vh;
@@ -172,25 +185,14 @@
     <button id="locate" class="alt-btn">Find Me</button>
   </header>
 
-  <div id="map"></div>
-
-  <div id="autocenter-box" style="
-  position: absolute;
-  bottom: 20px;
-  right: 20px;
-  background: rgba(0,0,0,0.6);
-  padding: 6px 10px;
-  border-radius: 6px;
-  color: white;
-  font-size: 0.85rem;
-  display: none;
-  z-index: 9999;
-">
+  <div id="map">
+  <div id="autocenter-box">
   <label>
     <input type="checkbox" id="autocenter-toggle">
     Auto‑Center
   </label>
-</div>
+  </div>
+  </div>
 
   <div class="directions" id="directions">
     <h3>Directions</h3>
@@ -669,6 +671,7 @@ window.addEventListener('beforeunload', () => {
 </script>
 </body>
 </html>
+
 
 
 
