@@ -240,6 +240,7 @@ let watchId = null;
 let lastRerouteTime = 0;
 let lastRerouteCoords = null;
 let navigationActive = false;
+let autoCenterEnabled = false;
 
 function baseName(name) {
   return name.split(" - ")[0].trim();
@@ -278,6 +279,13 @@ function updateButton() {
   goBtn.disabled = !(startSel.value && endSel.value && startSel.value !== endSel.value);
 }
 
+const autoCenterBox = document.getElementById("autocenter-box");
+const autoCenterToggle = document.getElementById("autocenter-toggle");
+
+autoCenterToggle.addEventListener("change", () => {
+  autoCenterEnabled = autoCenterToggle.checked;
+});
+
 startSel.addEventListener("change", updateButton);
 endSel.addEventListener("change", updateButton);
 
@@ -285,7 +293,7 @@ const map = L.map("map").setView([39.780833, -75.121667], 17);
 
 L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   maxZoom: 19,
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
 }).addTo(map);
 
 const userIcon = L.divIcon({
@@ -469,10 +477,7 @@ goBtn.addEventListener("click", async () => {
 
   let startCoords;
   let startName;
-
-  // -----------------------------
-  // 1. Determine START COORDS
-  // -----------------------------
+	
   if (startBuilding === "_current") {
     try {
       startCoords = await getUserLocation();
@@ -491,7 +496,6 @@ goBtn.addEventListener("click", async () => {
   let endName;
 
   if (startBuilding === "_current") {
-    // Choose closest entrance to user
     const ends = BUILDING_GROUPS[endBuilding];
     let bestEnd = null;
 
@@ -504,11 +508,18 @@ goBtn.addEventListener("click", async () => {
     endName = bestEnd.name;
 
   } else {
-    // Normal building → building routing
     const { end } = closestEntrances(startBuilding, endBuilding);
     endCoords = end.coords;
     endName = end.name;
   }
+  
+if (startBuilding === "_current") {
+    map.setView(startCoords, 18);
+    autoCenterBox.style.display = "block";
+    autoCenterToggle.checked = false;
+    autoCenterEnabled = false;
+}
+
 
   if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
@@ -529,7 +540,7 @@ goBtn.addEventListener("click", async () => {
       showDirections(route.properties);
     }
 
-    return; // stop here — off‑campus routing complete
+    return;
   }
 
   if (startMarker) map.removeLayer(startMarker);
@@ -576,14 +587,16 @@ goBtn.addEventListener("click", async () => {
 });
 
 async function handleLiveUpdate(coords) {
-  if (!navigationActive) return;
+  if (!navigationActive || startSel.value !== "_current") return;
+
 
   if (userMarker) userMarker.setLatLng(coords);
   else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
 
-  if (startSel.value === "_current") {
+ if (autoCenterEnabled) {
     map.setView(coords, map.getZoom(), { animate: true });
-  }
+}
+
 
   const now = Date.now();
   
@@ -591,13 +604,13 @@ if (endMarker) {
     const dest = endMarker.getLatLng();
     const d = dist(coords, [dest.lat, dest.lng]);
 
-    if (d < 10) {  // 10 meters is a good threshold
+    if (d < 10) {
         stopNavigation();
         return;
     }
 }
 
-  if (now - lastRerouteTime < 3000) return; // 1 second
+  if (now - lastRerouteTime < 3000) return;
 
   if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 4) return;
 
@@ -630,10 +643,22 @@ window.addEventListener('beforeunload', () => {
 });
 
 </script>
-
+<div id="autocenter-box" style="
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(0,0,0,0.6);
+  padding: 6px 10px;
+  border-radius: 6px;
+  color: white;
+  font-size: 0.85rem;
+  display: none;
+  z-index: 9999;
+">
+  <label>
+    <input type="checkbox" id="autocenter-toggle">
+    Auto‑Center
+  </label>
+</div>
 </body>
 </html>
-
-
-
-
