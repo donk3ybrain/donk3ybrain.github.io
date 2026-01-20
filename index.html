@@ -216,6 +216,7 @@ const BUILDINGS = [
   { name: "Business & Corporate - Back A", coords: [39.7799038, -75.1195415] },
   { name: "Business & Corporate - Back B", coords: [39.7797477, -75.1197277] },
   { name: "Business & Corporate - Main", coords: [39.7801545, -75.1200946] },
+  { name: "Career & Technical Education - Main", coords: [39.778847305, -75.128514295] },
   { name: "College Center - Back", coords: [39.7815536, -75.1212767] },
   { name: "College Center - Cafeteria", coords: [39.7815035, -75.1208687] },
   { name: "College Center - Front", coords: [39.7812599, -75.1210383] },
@@ -330,9 +331,13 @@ const CAMPUS_BOUNDS = {
 };
 
 const PARKING_LOTS = [
-  { name: "Parking Lot D1", coords: [39.780090, -75.123866] },
-  { name: "Parking Lot D2", coords: [39.7788730, -75.1223550] },
-  { name: "Parking Lot E", coords: [39.7789649, -75.1193023] }
+  { name: "Parking Lot D1", coords: [39.78047070, -75.1239952] },
+  { name: "Parking Lot D2", coords: [39.779918758, -75.12325970] },
+  { name: "Parking Lot D3", coords: [39.77941683, -75.12265084] },
+  { name: "Parking Lot D4", coords: [39.77899838, -75.12175499] },
+  { name: "Parking Lot E1", coords: [39.779104958, -75.1195312] },
+  { name: "Parking Lot E2", coords: [39.77979876, -75.11871189] },
+  { name: "Parking Lot G", coords: [39.778873, -75.122355] }
 ];
 
 function isOnCampus([lat, lng]) {
@@ -664,5 +669,6 @@ window.addEventListener('beforeunload', () => {
 </script>
 </body>
 </html>
+
 
 
