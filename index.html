@@ -259,6 +259,8 @@ let lastRerouteTime = 0;
 let lastRerouteCoords = null;
 let navigationActive = false;
 let autoCenterEnabled = false;
+let lastAutoCenterTime = 0;
+
 
 function baseName(name) {
   return name.split(" - ")[0].trim();
@@ -392,14 +394,22 @@ function closestEntrances(startBuilding, endBuilding) {
   return best;
 }
 
-async function getRoute(start, end, profile = "foot-hiking") {
+async function getRoute(start, end, profile = "foot-walking") {
 
   const body = {
-    coordinates: [
-      [start[1], start[0]],
-      [end[1], end[0]]
-    ]
-  };
+  coordinates: [
+    [start[1], start[0]],
+    [end[1], end[0]]
+  ],
+  radiuses: [5, 5],
+  options: {
+    avoid_features: [],
+    profile_params: {
+      restrictions: {},
+      weighting: "shortest"
+    }
+  }
+};
 
 const res = await fetch(
   `https://broken-truth-6a9a.dan-5e4.workers.dev/route?profile=${profile}`,
@@ -420,18 +430,18 @@ let endMarker = null;
 
 function drawRoute(geojson) {
   if (routeLayer) map.removeLayer(routeLayer);
-
-  routeLayer = L.geoJSON(geojson, {
-    style: { color: "#005696", weight: 5 }
+  const coords = geojson.coordinates.map(c => [c[1], c[0]]);
+  routeLayer = L.polyline(coords, {
+    color: "#005696",
+    weight: 5
   }).addTo(map);
-
   map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
 }
+
 
 function showDirections(routeProps) {
   const meta = document.getElementById("meta");
   const stepsDiv = document.getElementById("steps");
-
   const meters = routeProps.summary.distance;
   const feet = (meters * 3.28084).toFixed(0);
   const miles = (meters / 1609.34).toFixed(2);
@@ -616,8 +626,13 @@ async function handleLiveUpdate(coords) {
   else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
 
  if (autoCenterEnabled) {
-    map.setView(coords, map.getZoom(), { animate: true });
+    const now = Date.now();
+    if (now - lastAutoCenterTime > 2000) {
+        map.setView(coords, map.getZoom(), { animate: true });
+        lastAutoCenterTime = now;
+    }
 }
+
 
 
   const now = Date.now();
@@ -667,6 +682,7 @@ window.addEventListener('beforeunload', () => {
 </script>
 </body>
 </html>
+
 
 
 
