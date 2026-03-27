@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>RCSJ Gloucester Campus Walking Navigator</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, interactive-widget=overlays-content" />
+
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+  <style>
+    :root {
+      --accent: #edab1e;
+      --border: #333;
+      --muted: #eee;
+	  --vh: 1vh;
+    }
+
+    body {
+      margin: 0;
+      font-family: system-ui, sans-serif;
+      display: flex;
+	  background: #005696;
+      flex-direction: column;
+      height: calc(var(--vh) * 100);
+      color: #eee;
+    }
+
+    header {
+      padding: 4px;
+      display: flex;
+      gap: 0.5rem;
+      background: #005696;
+      z-index: 1000;
+    }
+
+    .title {
+      font-weight: 600;
+	  background: #005696;
+      font-size: 1rem;
+	  padding-left: 15vw;
+	  cursor: default;
+      white-space: nowrap;
+    }
+
+    select, button {
+      padding: 0.45rem 0.75rem;
+      border-radius: 999px;
+      font-size: 0.9rem;
+	  cursor: pointer;
+	  filter: drop-shadow(-1px 0 2px rgba(0, 0, 0, 0.9));
+    }
+	
+	button {
+	  border: 2px solid #bbb;
+	  cursor: pointer;
+	  min-width: 80px;
+	  filter: drop-shadow(1px 0 2px rgba(0, 0, 0, 0.9));
+	}
+
+    .prm-btn {
+      background: var(--accent);
+      color: #fff;
+	  text-shadow: 0 0 3px black;
+      font-weight: 500;
+    }
+	
+	.alt-btn {
+	  background: #666;
+	  color: #fff;
+	  text-shadow: 0 0 4px #005696;
+      font-weight: 500;
+	}
+	
+	.prm-btn:hover, .alt-btn:hover {
+	  border: 2px solid #fff;
+	}
+
+    button:disabled {
+      background: #edab1e;
+    }
+
+    #map {
+      flex: 1;
+	  position: relative;
+      width: 99vw;
+	  margin-top: 2px;
+	  margin-left: .3vw;
+	  margin-right: .5vw;
+	  border: 4px solid #edab1e;
+	  filter: drop-shadow(0 0 1px rgba(0, 0, 0, 0.9));
+    }
+
+	#autocenter-box {
+	  position: absolute;
+  	  bottom: 4px;
+  	  right: 6px;
+  	  background: rgba(237,171,30,0.9);
+  	  padding: 4px;
+  	  border-radius: 6px;
+  	  color: black;
+  	  font-size: 0.7rem;
+	  font-weight: bold;
+ 	  display: none;
+  	  z-index: 9999;
+	}
+
+    .directions {
+      padding: 0.75rem 1rem;
+      max-height: 15vh;
+      overflow-y: auto;
+      background: #005696;
+    }
+
+    .directions h3 {
+      margin: 0 0 0.25rem 0;
+      font-size: 1rem;
+    }
+
+    .meta {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-bottom: 0.5rem;
+    }
+
+    .step {
+      margin-bottom: 0.4rem;
+      font-size: 0.85rem;
+    }
+
+    .pulse {
+      width: 16px;
+      height: 16px;
+      background: #edab1e;
+      border-radius: 50%;
+	  filter: drop-shadow(0 0 2px rgba(0, 86, 150, 1));
+      box-shadow: 0 0 0 rgba(0, 86, 150, 1);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0% {
+        box-shadow: 0 0 0 0 rgba(0, 86, 150, 0.7);
+      }
+      70% {
+        box-shadow: 0 0 0 20px rgba(0, 86, 150, 0);
+      }
+      100% {
+        box-shadow: 0 0 0 0 rgba(0, 86, 150, 0);
+      }
+    }
+
+    .building-label {
+      background: rgba(0, 86, 150, 0.88);
+      color: #fff;
+      border: 1.5px solid #edab1e;
+      border-radius: 6px;
+      padding: 2px 7px;
+      font-size: 0.7rem;
+      font-weight: 600;
+      white-space: nowrap;
+      cursor: pointer;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      pointer-events: auto;
+    }
+
+    .building-label:hover {
+      background: rgba(237, 171, 30, 0.95);
+      color: #000;
+      border-color: #fff;
+    }
+
+    .building-popup h4 {
+      margin: 0 0 4px 0;
+      font-size: 0.95rem;
+      color: #005696;
+    }
+
+    .building-popup .bp-hours {
+      font-size: 0.8rem;
+      color: #555;
+      margin-bottom: 4px;
+    }
+
+    .building-popup .bp-desc {
+      font-size: 0.82rem;
+      color: #222;
+    }
+
+    @media (max-width: 700px) {
+      .title {
+        display: none;
+      }
+	  header { 
+		flex-direction: row;
+		align-items: stretch;
+		padding: 0.5rem;
+	  } 
+	  header select,
+	  header button {
+		width: 40%;
+		margin: 0.25rem 0;
+	  }
+	   #map {
+	    max-width: 98vw;
+		margin-left: 0.2vw;
+		margin-right: 0.5vw;
+	  }
+	  .directions {
+		max-height: 15vh;
+		font-size: 0.7rem;
+	  }
+    }
+  </style>
+</head>
+<body>
+	<div class="title">RCSJ Gloucester Campus Walking Map</div>
+  <header>
+    <select id="start"></select>
+    <select id="end"></select>
+
+    <button id="go" class="prm-btn" disabled>Go</button>
+    <button id="locate" class="alt-btn">Find Me</button>
+  </header>
+
+  <div id="map"><div id="autocenter-box">
+  <label>
+    <input type="checkbox" id="autocenter-toggle">
+    Auto‑Center
+  </label>
+  </div>
+  </div>
+
+  <div class="directions" id="directions">
+    <h3>Directions</h3>
+    <div class="meta" id="meta"></div>
+    <div id="steps">Choose a start and end point to begin.</div>
+  </div>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+function updateVH() {
+  document.documentElement.style.setProperty('--vh', window.innerHeight * 0.01 + 'px');
+}
+updateVH();
+window.addEventListener('resize', updateVH);
+
+const BUILDINGS = [
+  { name: "Allied Health Center - Main", coords: [39.782878, -75.1230191] },
+  { name: "Behavioral Sciences - E", coords: [39.7796022, -75.1209136] },
+  { name: "Behavioral Sciences - W", coords: [39.7795505, -75.1216443] },
+  { name: "Behavioral Sciences - S", coords: [39.7794936, -75.1210346] },
+  { name: "Bookstore - Main", coords: [39.7809695688, -75.1218239547] },
+  { name: "Bus Stop - Main", coords: [39.77908331922, -75.1236362179] },
+  { name: "Business & Corporate - SE", coords: [39.7799038, -75.1195415] },
+  { name: "Business & Corporate - SW", coords: [39.7797477, -75.1197277] },
+  { name: "Business & Corporate - W", coords: [39.7801545, -75.1200946] },
+  { name: "College Center - N", coords: [39.7815536, -75.1212767] },
+  { name: "College Center - S", coords: [39.7812599, -75.1210383] },
+  { name: "College Center - E", coords: [39.7813882, -75.1208947] },
+  { name: "College Center - W", coords: [39.7813314, -75.1215967] },
+  { name: "Education & Humanities - SE", coords: [39.7806156285, -75.1199260337] },
+  { name: "Education & Humanities - SW", coords: [39.7807157, -75.120512] },
+  { name: "Education & Humanities - NE", coords: [39.7812582, -75.119765] },
+  { name: "Education & Humanities - NW", coords: [39.781197, -75.120702] },
+  { name: "Education & Humanities - N", coords: [39.781318, -75.120579] },
+  { name: "Health Sciences - NW", coords: [39.7797105584, -75.1252627411] },
+  { name: "Health Sciences - SW", coords: [39.779601317, -75.125094405] },
+  { name: "Law & Justice - W", coords: [39.7815494, -75.123452] },
+  { name: "Law & Justice - E", coords: [39.78168391125, -75.1227306679] },
+  { name: "Library - NE", coords: [39.7808008, -75.1217652] },
+  { name: "Library - W", coords: [39.7807886, -75.1220539] },
+  { name: "Library - SE", coords: [39.7805522, -75.1216513] },
+  { name: "Math & Engineering - E", coords: [39.7799327, -75.1219634] },
+  { name: "Math & Engineering - W", coords: [39.7797271, -75.1223055] },
+  { name: "Math & Engineering - N", coords: [39.7801541, -75.1224021] },
+  { name: "Math & Engineering - S", coords: [39.7796644, -75.121962] },
+  { name: "Medical Arts - Main", coords: [39.7816786, -75.1196886] },
+  { name: "Nursing & Health Professions - E", coords: [39.779229, -75.1205182] },
+  { name: "Nursing & Health Professions - W", coords: [39.7790224, -75.1209711] },
+  { name: "Physical Education - Main", coords: [39.7819393, -75.122689] },
+  { name: "Roadrunner Cafe - Main", coords: [39.78150828, -75.1208635] },
+  { name: "Scott Hall - SE", coords: [39.7807653, -75.1224492] },
+  { name: "Scott Hall - NE", coords: [39.7811138, -75.1226172] },
+  { name: "Scott Hall - W", coords: [39.7806277, -75.1231511] },
+  { name: "Scott Hall - S", coords: [39.7804118, -75.1225503] },
+  { name: "Scott Hall - NW", coords: [39.781022, -75.1237656] },
+  { name: "Security - Main", coords: [39.7824545, -75.1235807] },
+  { name: "Student Services - E", coords: [39.780066, -75.1207621] },
+  { name: "Student Services - NW", coords: [39.7802322, -75.1213217] },
+  { name: "Student Services - SW", coords: [39.7801584, -75.1213155] },
+  { name: "Student Services - N", coords: [39.7805153, -75.1209092] },
+  { name: "Together Cafe Too - Main", coords: [39.78056174, -75.12157020] },
+  { name: "Tutoring / Academic Support - Main", coords: [39.7807886, -75.1220539] }
+];
+
+// ── Building info: descriptions & hours ──────────────────────────────────────
+// Edit these to update what appears when a building label is tapped/clicked.
+const BUILDING_INFO = {
+  "Allied Health Center": {
+    description: "Houses allied health programs including radiography, respiratory care, and surgical technology.",
+    hours: "Mon–Fri: 7:00 AM – 9:00 PM"
+  },
+  "Behavioral Sciences": {
+    description: "Home to psychology, sociology, and human services programs.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "Bookstore": {
+    description: "Campus bookstore offering textbooks, supplies, and RCSJ merchandise.",
+    hours: "Mon–Thu: 9:00 AM – 6:00 PM | Fri: 9:00 AM – 2:00 PM"
+  },
+  "Bus Stop": {
+    description: "Main campus bus stop served by NJ Transit routes.",
+    hours: "Varies by NJ Transit schedule"
+  },
+  "Business & Corporate": {
+    description: "Offers business administration, accounting, and corporate training programs.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "College Center": {
+    description: "Central hub for student activities, clubs, and campus events.",
+    hours: "Mon–Thu: 8:00 AM – 8:00 PM | Fri: 8:00 AM – 4:00 PM"
+  },
+  "Education & Humanities": {
+    description: "Features education, English, history, philosophy, and world language programs.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "Health Sciences": {
+    description: "Contains labs and classrooms for health science and pre-clinical programs.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "Law & Justice": {
+    description: "Houses criminal justice, paralegal, and public safety programs.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "Library": {
+    description: "Campus library offering research resources, study spaces, and computer access.",
+    hours: "Mon–Thu: 7:30 AM – 9:00 PM | Fri: 7:30 AM – 4:30 PM | Sat: 9:00 AM – 1:00 PM"
+  },
+  "Math & Engineering": {
+    description: "Offers mathematics, engineering, and computer science courses and labs.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "Medical Arts": {
+    description: "Medical arts building supporting clinical and healthcare programs.",
+    hours: "Mon–Fri: 8:00 AM – 6:00 PM"
+  },
+  "Nursing & Health Professions": {
+    description: "Home to nursing, dental hygiene, and health professions programs with simulation labs.",
+    hours: "Mon–Fri: 7:00 AM – 9:00 PM"
+  },
+  "Physical Education": {
+    description: "Gymnasium and fitness facilities for physical education classes and recreation.",
+    hours: "Mon–Thu: 7:00 AM – 9:00 PM | Fri: 7:00 AM – 5:00 PM"
+  },
+  "Roadrunner Cafe": {
+    description: "Main campus dining café offering hot meals, snacks, and beverages.",
+    hours: "Mon–Thu: 7:30 AM – 7:00 PM | Fri: 7:30 AM – 2:00 PM"
+  },
+  "Scott Hall": {
+    description: "Administrative and classroom building supporting a variety of academic departments.",
+    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+  },
+  "Security": {
+    description: "Campus Security office. For emergencies call Security directly or dial 911.",
+    hours: "24 Hours / 7 Days a Week"
+  },
+  "Student Services": {
+    description: "One-stop office for admissions, financial aid, advising, and registration.",
+    hours: "Mon–Thu: 8:00 AM – 7:00 PM | Fri: 8:00 AM – 4:30 PM"
+  },
+  "Together Cafe Too": {
+    description: "Additional campus café location offering coffee, snacks, and light fare.",
+    hours: "Mon–Thu: 8:00 AM – 6:00 PM | Fri: 8:00 AM – 2:00 PM"
+  },
+  "Tutoring / Academic Support": {
+    description: "Free tutoring and academic support services for all enrolled students.",
+    hours: "Mon–Thu: 8:00 AM – 8:00 PM | Fri: 8:00 AM – 4:00 PM"
+  }
+};
+
+// ── Building center points (for label placement, independent of entrances) ────
+// Adjust these coords to reposition a label on the map.
+const BUILDING_CENTERS = {
+  "Allied Health Center":           [39.782878,  -75.123019],
+  "Behavioral Sciences":            [39.779600,  -75.121279],
+  "Bookstore":                      [39.780970,  -75.121824],
+  "Bus Stop":                       [39.779083,  -75.123636],
+  "Business & Corporate":           [39.779934,  -75.119788],
+  "College Center":                 [39.781446,  -75.121236],
+  "Education & Humanities":         [39.780987,  -75.120235],
+  "Health Sciences":                [39.779656,  -75.125178],
+  "Law & Justice":                  [39.781617,  -75.123091],
+  "Library":                        [39.780711,  -75.121957],
+  "Math & Engineering":             [39.779891,  -75.122154],
+  "Medical Arts":                   [39.781679,  -75.119689],
+  "Nursing & Health Professions":   [39.779126,  -75.120745],
+  "Physical Education":             [39.781939,  -75.122689],
+  "Roadrunner Cafe":                [39.781508,  -75.120864],
+  "Scott Hall":                     [39.780758,  -75.122849],
+  "Security":                       [39.782455,  -75.123581],
+  "Student Services":               [39.780226,  -75.121025],
+  "Together Cafe Too":              [39.780562,  -75.121570],
+  "Tutoring / Academic Support":    [39.780789,  -75.122054]
+};
+
+let watchId = null;
+let lastRerouteTime = 0;
+let lastRerouteCoords = null;
+let navigationActive = false;
+let autoCenterEnabled = false;
+
+function baseName(name) {
+  return name.split(" - ")[0].trim();
+}
+
+const BUILDING_GROUPS = {};
+BUILDINGS.forEach(b => {
+  const base = baseName(b.name);
+  if (!BUILDING_GROUPS[base]) BUILDING_GROUPS[base] = [];
+  BUILDING_GROUPS[base].push(b);
+});
+
+const startSel = document.getElementById("start");
+const endSel = document.getElementById("end");
+const goBtn = document.getElementById("go");
+
+function populateBuildings(sel, includeCurrent = false, placeholder = "Select") {
+  sel.innerHTML = `<option value=''>${placeholder}</option>`;
+
+  if (includeCurrent) {
+    sel.innerHTML += "<option value='_current'>Use My Location</option>";
+  }
+
+  Object.keys(BUILDING_GROUPS).forEach(name => {
+    const opt = document.createElement("option");
+    opt.value = name;
+    opt.textContent = name;
+    sel.appendChild(opt);
+  });
+}
+
+populateBuildings(startSel, true, "Start");
+populateBuildings(endSel, false, "End");
+
+function updateButton() {
+  goBtn.disabled = !(startSel.value && endSel.value && startSel.value !== endSel.value);
+}
+
+const autoCenterBox = document.getElementById("autocenter-box");
+const autoCenterToggle = document.getElementById("autocenter-toggle");
+
+autoCenterToggle.addEventListener("change", () => {
+  autoCenterEnabled = autoCenterToggle.checked;
+});
+
+startSel.addEventListener("change", updateButton);
+endSel.addEventListener("change", updateButton);
+
+// Defer all Leaflet usage until the library has fully loaded
+window.addEventListener('load', initMap);
+function initMap() {
+
+const map = L.map("map").setView([39.780833, -75.121667], 17);
+
+L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+  maxZoom: 19,
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+}).addTo(map);
+
+const userIcon = L.divIcon({
+  className: "pulse",
+  iconSize: [16, 16]
+});
+
+let userMarker = null;
+
+// ── Entrance dot markers ──────────────────────────────────────────────────────
+const entranceIcon = L.divIcon({
+  className: "",
+  html: `<div style="
+    width:9px;height:9px;
+    background:#edab1e;
+    border:2px solid #fff;
+    border-radius:50%;
+    box-shadow:0 1px 3px rgba(0,0,0,0.6);
+  "></div>`,
+  iconSize: [9, 9],
+  iconAnchor: [4, 4]
+});
+
+Object.values(BUILDING_GROUPS).forEach(entrances => {
+  entrances.forEach(e => {
+    L.marker(e.coords, { icon: entranceIcon, interactive: false }).addTo(map);
+  });
+});
+
+// ── Building label markers (one per building, at defined center) ──────────────
+Object.entries(BUILDING_GROUPS).forEach(([name, _entrances]) => {
+  const center = BUILDING_CENTERS[name];
+  if (!center) return;
+
+  const info = BUILDING_INFO[name] || {};
+
+  const labelIcon = L.divIcon({
+    className: "",
+    html: `<div class="building-label">${name}</div>`,
+    iconAnchor: [0, 0]
+  });
+
+  const popupContent = `
+    <div class="building-popup">
+      <h4>${name}</h4>
+      ${info.hours ? `<div class="bp-hours">🕐 ${info.hours}</div>` : ""}
+      ${info.description ? `<div class="bp-desc">${info.description}</div>` : ""}
+    </div>`;
+
+  L.marker(center, { icon: labelIcon, interactive: true })
+    .addTo(map)
+    .bindPopup(popupContent, { maxWidth: 260 });
+});
+
+const CAMPUS_BOUNDS = {
+  north: 39.7836,
+  south: 39.7775,
+  east: -75.1180,
+  west: -75.1288
+};
+
+const PARKING_LOTS = [
+  { name: "Parking Lot D1", coords: [39.78047070, -75.1239952] },
+  { name: "Parking Lot D2", coords: [39.779918758, -75.12325970] },
+  { name: "Parking Lot D3", coords: [39.77941683, -75.12265084] },
+  { name: "Parking Lot D4", coords: [39.77899838, -75.12175499] },
+  { name: "Parking Lot E1", coords: [39.779104958, -75.1195312] },
+  { name: "Parking Lot E2", coords: [39.77979876, -75.11871189] },
+  { name: "Parking Lot G", coords: [39.778873, -75.122355] }
+];
+
+function isOnCampus([lat, lng]) {
+  return (
+    lat <= CAMPUS_BOUNDS.north &&
+    lat >= CAMPUS_BOUNDS.south &&
+    lng >= CAMPUS_BOUNDS.west &&
+    lng <= CAMPUS_BOUNDS.east
+  );
+}
+
+function nearestParkingLot(userCoords) {
+  let best = null;
+
+  PARKING_LOTS.forEach(lot => {
+    const d = dist(userCoords, lot.coords);
+    if (!best || d < best.d) best = { ...lot, d };
+  });
+
+  return best;
+}
+
+function dist(a, b) {
+  const R = 6371e3;
+  const toRad = x => x * Math.PI / 180;
+
+  const dLat = toRad(b[0] - a[0]);
+  const dLng = toRad(b[1] - a[1]);
+
+  const lat1 = toRad(a[0]);
+  const lat2 = toRad(b[0]);
+
+  const h = Math.sin(dLat/2)**2 +
+            Math.cos(lat1)*Math.cos(lat2)*Math.sin(dLng/2)**2;
+
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function closestEntrances(startBuilding, endBuilding) {
+  const starts = BUILDING_GROUPS[startBuilding];
+  const ends = BUILDING_GROUPS[endBuilding];
+
+  let best = null;
+
+  starts.forEach(s => {
+    ends.forEach(e => {
+      const d = dist(s.coords, e.coords);
+      if (!best || d < best.d) {
+        best = { start: s, end: e, d };
+      }
+    });
+  });
+
+  return best;
+}
+
+async function getRoute(start, end, profile = "foot-walking") {
+
+  const body = {
+    coordinates: [
+      [start[1], start[0]],
+      [end[1], end[0]]
+    ]
+  };
+
+const res = await fetch(
+  `https://broken-truth-6a9a.dan-5e4.workers.dev/route?profile=${profile}`,
+  {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body)
+  }
+);
+
+  if (!res.ok) throw new Error("ORS HTTP error: " + res.status);
+  return res.json();
+}
+
+let routeLayer = null;
+let startMarker = null;
+let endMarker = null;
+
+function drawRoute(geojson) {
+  if (routeLayer) map.removeLayer(routeLayer);
+
+  routeLayer = L.geoJSON(geojson, {
+    style: { color: "#005696", weight: 5 }
+  }).addTo(map);
+
+  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+}
+
+function showDirections(routeProps) {
+  const meta = document.getElementById("meta");
+  const stepsDiv = document.getElementById("steps");
+
+  const meters = routeProps.summary.distance;
+  const feet = (meters * 3.28084).toFixed(0);
+  const miles = (meters / 1609.34).toFixed(2);
+  const timeMin = Math.round(routeProps.summary.duration / 60) + " min";
+
+  meta.textContent = `${feet} ft • ${miles} mi • ${timeMin}`;
+
+  stepsDiv.innerHTML = "";
+  routeProps.segments[0].steps.forEach(s => {
+  const div = document.createElement("div");
+  div.className = "step";
+
+  const meters = s.distance;
+  const feet = (meters * 3.28084).toFixed(0);
+  const miles = (meters / 1609.34).toFixed(2);
+
+  let distText;
+  if (meters < 200) {
+    distText = `${feet} ft`;
+  } else {
+    distText = `${miles} mi`;
+  }
+
+  div.textContent = `${s.instruction} (${distText})`;
+  stepsDiv.appendChild(div);
+});
+}
+
+function getUserLocation() {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject("Your device does not support GPS.");
+      return;
+    }
+
+    navigator.geolocation.getCurrentPosition(
+      pos => resolve([pos.coords.latitude, pos.coords.longitude]),
+      err => {
+        if (err.code === 1) reject("Enable Location in device settings to use this feature");
+        else reject("Unable to retrieve GPS location.");
+      },
+      { enableHighAccuracy: true }
+    );
+  });
+}
+
+document.getElementById("locate").addEventListener("click", async () => {
+  try {
+    const coords = await getUserLocation();
+
+    if (userMarker) map.removeLayer(userMarker);
+
+    userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
+    map.setView(coords, 18);
+
+  } catch (err) {
+    alert(err);
+  }
+});
+
+goBtn.addEventListener("click", async () => {
+  const startBuilding = startSel.value;
+  const endBuilding = endSel.value;
+
+  let startCoords;
+  let startName;
+	
+  if (startBuilding === "_current") {
+    try {
+      startCoords = await getUserLocation();
+      startName = "Your Location";
+    } catch (err) {
+      alert(err);
+      return;
+    }
+  } else {
+    const { start } = closestEntrances(startBuilding, endBuilding);
+    startCoords = start.coords;
+    startName = start.name;
+  }
+
+  let endCoords;
+  let endName;
+
+  if (startBuilding === "_current") {
+    const ends = BUILDING_GROUPS[endBuilding];
+    let bestEnd = null;
+
+    ends.forEach(e => {
+      const d = dist(startCoords, e.coords);
+      if (!bestEnd || d < bestEnd.d) bestEnd = { ...e, d };
+    });
+
+    endCoords = bestEnd.coords;
+    endName = bestEnd.name;
+
+  } else {
+    const { end } = closestEntrances(startBuilding, endBuilding);
+    endCoords = end.coords;
+    endName = end.name;
+  }
+  
+if (startBuilding === "_current") {
+    map.setView(startCoords, 18);
+    autoCenterBox.style.display = "block";
+    autoCenterToggle.checked = false;
+    autoCenterEnabled = false;
+}
+
+  if (startBuilding === "_current" && !isOnCampus(startCoords)) {
+
+    const nearestLot = nearestParkingLot(endCoords);
+
+    if (startMarker) map.removeLayer(startMarker);
+    if (endMarker) map.removeLayer(endMarker);
+
+    endMarker = L.marker(nearestLot.coords)
+      .addTo(map)
+      .bindPopup(nearestLot.name);
+
+    const data = await getRoute(startCoords, nearestLot.coords, "driving-car");
+
+    if (data.features && data.features.length > 0) {
+      const route = data.features[0];
+      drawRoute(route.geometry);
+      showDirections(route.properties);
+    }
+
+    return;
+  }
+
+  if (startMarker) map.removeLayer(startMarker);
+  if (endMarker) map.removeLayer(endMarker);
+
+  if (startBuilding !== "_current") {
+    startMarker = L.marker(startCoords).addTo(map).bindPopup(startName);
+  }
+
+  endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
+
+  const meta = document.getElementById("meta");
+  const stepsDiv = document.getElementById("steps");
+  meta.textContent = "";
+  stepsDiv.textContent = "Finding walking route...";
+
+  let data;
+  try {
+    data = await getRoute(startCoords, endCoords);
+  } catch (err) {
+    console.error(err);
+    stepsDiv.textContent = "Error contacting routing service.";
+    return;
+  }
+
+  if (!data.features || data.features.length === 0) {
+    stepsDiv.textContent = "No walking route found.";
+    return;
+  }
+
+  const route = data.features[0];
+  drawRoute(route.geometry);
+  showDirections(route.properties);
+
+  navigationActive = true;
+
+  if (watchId) navigator.geolocation.clearWatch(watchId);
+
+  watchId = navigator.geolocation.watchPosition(
+    pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
+    err => console.error("GPS error:", err),
+    { enableHighAccuracy: true, maximumAge: 1000 }
+  );
+});
+
+async function handleLiveUpdate(coords) {
+  if (!navigationActive || startSel.value !== "_current") return;
+
+
+  if (userMarker) userMarker.setLatLng(coords);
+  else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
+
+ if (autoCenterEnabled) {
+    map.setView(coords, map.getZoom(), { animate: true });
+}
+
+  const now = Date.now();
+  
+if (endMarker) {
+    const dest = endMarker.getLatLng();
+    const d = dist(coords, [dest.lat, dest.lng]);
+
+    if (d < 10) {
+        stopNavigation();
+        return;
+    }
+}
+
+  if (now - lastRerouteTime < 3000) return;
+
+  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 4) return;
+
+  lastRerouteTime = now;
+  lastRerouteCoords = coords;
+
+  try {
+    if (!endMarker) return;
+    const dest = endMarker.getLatLng();
+    const data = await getRoute(coords, [dest.lat, dest.lng]);
+    if (data.features && data.features.length > 0) {
+      const route = data.features[0];
+      drawRoute(route.geometry);
+      showDirections(route.properties);
+    }
+  } catch (err) {
+    console.error("Auto-reroute failed:", err);
+  }
+}
+function stopNavigation() {
+  navigationActive = false;
+  if (watchId) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+}
+
+window.addEventListener('beforeunload', () => {
+  stopNavigation();
+});
+
+} // end initMap
+
+</script>
+</body>
+</html>
+
+
+
+
