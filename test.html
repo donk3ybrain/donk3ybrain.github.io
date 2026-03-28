@@ -1,4 +1,5 @@
 <!DOCTYPE html>
+<!-- ©2026 donk3ybrain -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
@@ -150,23 +151,12 @@
     }
 
     .building-label {
-      background: rgba(0, 86, 150, 0.88);
-      color: #fff;
-      border: 1.5px solid #edab1e;
-      border-radius: 6px;
-      padding: 2px 7px;
+      color: #444;
       font-size: 0.7rem;
-      font-weight: 600;
+      font-weight: 500;
       white-space: nowrap;
       cursor: pointer;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
       pointer-events: auto;
-    }
-
-    .building-label:hover {
-      background: rgba(237, 171, 30, 0.95);
-      color: #000;
-      border-color: #fff;
     }
 
     .building-popup h4 {
@@ -176,8 +166,8 @@
     }
 
     .building-popup .bp-hours {
-      font-size: 0.8rem;
-      color: #555;
+      font-size: 0.6rem;
+      color: #666;
       margin-bottom: 4px;
     }
 
@@ -259,149 +249,95 @@ const BUILDINGS = [
   { name: "College Center - S", coords: [39.7812599, -75.1210383] },
   { name: "College Center - E", coords: [39.7813882, -75.1208947] },
   { name: "College Center - W", coords: [39.7813314, -75.1215967] },
-  { name: "Education & Humanities - SE", coords: [39.7806156285, -75.1199260337] },
+  { name: "Education & Humanities - SE", coords: [39.78064283734, -75.1199326547] },
   { name: "Education & Humanities - SW", coords: [39.7807157, -75.120512] },
   { name: "Education & Humanities - NE", coords: [39.7812582, -75.119765] },
-  { name: "Education & Humanities - NW", coords: [39.781197, -75.120702] },
-  { name: "Education & Humanities - N", coords: [39.781318, -75.120579] },
+  { name: "Education & Humanities - NW", coords: [39.781199386, -75.1206827386] },
+  { name: "Education & Humanities - N", coords: [39.78129759453, -75.120570449] },
   { name: "Health Sciences - NW", coords: [39.7797105584, -75.1252627411] },
   { name: "Health Sciences - SW", coords: [39.779601317, -75.125094405] },
   { name: "Law & Justice - W", coords: [39.7815494, -75.123452] },
   { name: "Law & Justice - E", coords: [39.78168391125, -75.1227306679] },
-  { name: "Library - NE", coords: [39.7808008, -75.1217652] },
+  { name: "Library - NE", coords: [39.78081972333, -75.121772056] },
   { name: "Library - W", coords: [39.7807886, -75.1220539] },
   { name: "Library - SE", coords: [39.7805522, -75.1216513] },
   { name: "Math & Engineering - E", coords: [39.7799327, -75.1219634] },
-  { name: "Math & Engineering - W", coords: [39.7797271, -75.1223055] },
+  { name: "Math & Engineering - W", coords: [39.7797404531, -75.1223182424] },
   { name: "Math & Engineering - N", coords: [39.7801541, -75.1224021] },
   { name: "Math & Engineering - S", coords: [39.7796644, -75.121962] },
   { name: "Medical Arts - Main", coords: [39.7816786, -75.1196886] },
   { name: "Nursing & Health Professions - E", coords: [39.779229, -75.1205182] },
   { name: "Nursing & Health Professions - W", coords: [39.7790224, -75.1209711] },
-  { name: "Physical Education - Main", coords: [39.7819393, -75.122689] },
+  { name: "Physical Education - W", coords: [39.7819436448, -75.1226972811] },
+  { name: "Physical Education - S", coords: [39.781781036, -75.1227098609] },
   { name: "Roadrunner Cafe - Main", coords: [39.78150828, -75.1208635] },
   { name: "Scott Hall - SE", coords: [39.7807653, -75.1224492] },
   { name: "Scott Hall - NE", coords: [39.7811138, -75.1226172] },
   { name: "Scott Hall - W", coords: [39.7806277, -75.1231511] },
   { name: "Scott Hall - S", coords: [39.7804118, -75.1225503] },
   { name: "Scott Hall - NW", coords: [39.781022, -75.1237656] },
-  { name: "Security - Main", coords: [39.7824545, -75.1235807] },
+  { name: "Security - Main", coords: [39.78240664169, -75.1236159465] },
   { name: "Student Services - E", coords: [39.780066, -75.1207621] },
   { name: "Student Services - NW", coords: [39.7802322, -75.1213217] },
   { name: "Student Services - SW", coords: [39.7801584, -75.1213155] },
   { name: "Student Services - N", coords: [39.7805153, -75.1209092] },
-  { name: "Together Cafe Too - Main", coords: [39.78056174, -75.12157020] },
+  { name: "Together Cafe Too - Main", coords: [39.7805522, -75.1216513] },
   { name: "Tutoring / Academic Support - Main", coords: [39.7807886, -75.1220539] }
 ];
 
 // ── Building info: descriptions & hours ──────────────────────────────────────
 // Edit these to update what appears when a building label is tapped/clicked.
 const BUILDING_INFO = {
-  "Allied Health Center": {
-    description: "Houses allied health programs including radiography, respiratory care, and surgical technology.",
-    hours: "Mon–Fri: 7:00 AM – 9:00 PM"
-  },
-  "Behavioral Sciences": {
-    description: "Home to psychology, sociology, and human services programs.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
-  },
   "Bookstore": {
     description: "Campus bookstore offering textbooks, supplies, and RCSJ merchandise.",
-    hours: "Mon–Thu: 9:00 AM – 6:00 PM | Fri: 9:00 AM – 2:00 PM"
+    hours: "Mon–Thu: 9:00 AM – 4:00 PM<br>Fri: 9:00 AM – 1:00 PM<br>*Subject to change. Call 856-415-2234 for current hours."
   },
   "Bus Stop": {
-    description: "Main campus bus stop served by NJ Transit routes.",
-    hours: "Varies by NJ Transit schedule"
-  },
-  "Business & Corporate": {
-    description: "Offers business administration, accounting, and corporate training programs.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
-  },
-  "College Center": {
-    description: "Central hub for student activities, clubs, and campus events.",
-    hours: "Mon–Thu: 8:00 AM – 8:00 PM | Fri: 8:00 AM – 4:00 PM"
-  },
-  "Education & Humanities": {
-    description: "Features education, English, history, philosophy, and world language programs.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
-  },
-  "Health Sciences": {
-    description: "Contains labs and classrooms for health science and pre-clinical programs.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
-  },
-  "Law & Justice": {
-    description: "Houses criminal justice, paralegal, and public safety programs.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+    description: "Main campus bus stop served by NJ Transit and Rowan University Shuttle.",
+    hours: "https://sites.rowan.edu/shuttle-services/ <br>https://www.njtransit.com/studentpass"
   },
   "Library": {
     description: "Campus library offering research resources, study spaces, and computer access.",
-    hours: "Mon–Thu: 7:30 AM – 9:00 PM | Fri: 7:30 AM – 4:30 PM | Sat: 9:00 AM – 1:00 PM"
-  },
-  "Math & Engineering": {
-    description: "Offers mathematics, engineering, and computer science courses and labs.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
-  },
-  "Medical Arts": {
-    description: "Medical arts building supporting clinical and healthcare programs.",
-    hours: "Mon–Fri: 8:00 AM – 6:00 PM"
-  },
-  "Nursing & Health Professions": {
-    description: "Home to nursing, dental hygiene, and health professions programs with simulation labs.",
-    hours: "Mon–Fri: 7:00 AM – 9:00 PM"
-  },
-  "Physical Education": {
-    description: "Gymnasium and fitness facilities for physical education classes and recreation.",
-    hours: "Mon–Thu: 7:00 AM – 9:00 PM | Fri: 7:00 AM – 5:00 PM"
+    hours: "Mon–Thu: 8:00 AM – 8:00 PM<br>Fri: 8:00 AM – 4:00 PM<br>Sat: 10:00 AM – 2:00 PM<br>*Subject to change. Call 856-415-2252 for current hours."
   },
   "Roadrunner Cafe": {
     description: "Main campus dining café offering hot meals, snacks, and beverages.",
-    hours: "Mon–Thu: 7:30 AM – 7:00 PM | Fri: 7:30 AM – 2:00 PM"
-  },
-  "Scott Hall": {
-    description: "Administrative and classroom building supporting a variety of academic departments.",
-    hours: "Mon–Fri: 8:00 AM – 9:00 PM"
+    hours: "Mon–Fri: 8:30 AM - 2:30 PM​​​​<br>*Subject to change"
   },
   "Security": {
-    description: "Campus Security office. For emergencies call Security directly or dial 911.",
-    hours: "24 Hours / 7 Days a Week"
+    description: "Campus Security office. For emergencies call 911.",
+    hours: "Mon-Fri: 7:00 AM - 11:00 PM<br>For assistance call 856-464-5207"
   },
   "Student Services": {
-    description: "One-stop office for admissions, financial aid, advising, and registration.",
-    hours: "Mon–Thu: 8:00 AM – 7:00 PM | Fri: 8:00 AM – 4:30 PM"
+    description: "One-stop office for admissions, financial aid, advising, testing, and registration.",
+    hours: "Mon, Tue, Thu, Fri: 9:00 AM – 5:00 PM<br>Wed: 9:00 AM – 7:00 PM​​<br>*Subject to change"
+  },
+  "Technical Support": {
+    description: "Supporting network, wifi, computers, mobile devices, classroom tech, and eLearning for students and staff.",
+    hours: "Mon-Thu: 8:00 AM – 8:00 PM<br>Fri: 7:30 AM – 5:00 PM<br>Sat: 8:00 AM - 1:00 PM​​<br>*Subject to change. Call 856-415-2298 for assistance."
   },
   "Together Cafe Too": {
     description: "Additional campus café location offering coffee, snacks, and light fare.",
-    hours: "Mon–Thu: 8:00 AM – 6:00 PM | Fri: 8:00 AM – 2:00 PM"
+    hours: "Mon–Fri: 8:00 AM - 2:30 PM​​<br>*Subject to change"
   },
-  "Tutoring / Academic Support": {
+  "Tutoring /<br> Academic Support": {
     description: "Free tutoring and academic support services for all enrolled students.",
-    hours: "Mon–Thu: 8:00 AM – 8:00 PM | Fri: 8:00 AM – 4:00 PM"
+    hours: "Mon–Thu: 9:00 AM – 7:00 PM<br>Fri: 9:00 AM – 3:00 PM<br>*Subject to change.  Call ​856-681-6250 for current hours."
   }
 };
 
 // ── Building center points (for label placement, independent of entrances) ────
 // Adjust these coords to reposition a label on the map.
 const BUILDING_CENTERS = {
-  "Allied Health Center":           [39.782878,  -75.123019],
-  "Behavioral Sciences":            [39.779600,  -75.121279],
-  "Bookstore":                      [39.780970,  -75.121824],
-  "Bus Stop":                       [39.779083,  -75.123636],
-  "Business & Corporate":           [39.779934,  -75.119788],
-  "College Center":                 [39.781446,  -75.121236],
-  "Education & Humanities":         [39.780987,  -75.120235],
-  "Health Sciences":                [39.779656,  -75.125178],
-  "Law & Justice":                  [39.781617,  -75.123091],
-  "Library":                        [39.780711,  -75.121957],
-  "Math & Engineering":             [39.779891,  -75.122154],
-  "Medical Arts":                   [39.781679,  -75.119689],
-  "Nursing & Health Professions":   [39.779126,  -75.120745],
-  "Physical Education":             [39.781939,  -75.122689],
-  "Roadrunner Cafe":                [39.781508,  -75.120864],
-  "Scott Hall":                     [39.780758,  -75.122849],
-  "Security":                       [39.782455,  -75.123581],
-  "Student Services":               [39.780226,  -75.121025],
-  "Together Cafe Too":              [39.780562,  -75.121570],
-  "Tutoring / Academic Support":    [39.780789,  -75.122054]
+  "Bookstore":                      [39.7809860469, -75.1219789088],
+  "Bus Stop":                       [39.7790798768, -75.1236447298],
+  "Library":                        [39.7805346473, -75.1219037382],
+  "Roadrunner Cafe":                [39.7817098710, -75.1208693774],
+  "Security":                       [39.7824127679, -75.1235507989],
+  "Student Services":               [39.7802559345, -75.1211256507],
+  "Technical Support":              [39.7807918674, -75.1202029708],
+  "Together Cafe Too":              [39.7807176998, -75.1217105061],
+  "Tutoring / Academic Support":    [39.7808859175, -75.1221300482]
 };
 
 let watchId = null;
@@ -479,8 +415,8 @@ let userMarker = null;
 const entranceIcon = L.divIcon({
   className: "",
   html: `<div style="
-    width:9px;height:9px;
-    background:#edab1e;
+    width:6px;height:6px;
+    background: rgba(237, 171, 30, 0.4);
     border:2px solid #fff;
     border-radius:50%;
     box-shadow:0 1px 3px rgba(0,0,0,0.6);
@@ -511,7 +447,7 @@ Object.entries(BUILDING_GROUPS).forEach(([name, _entrances]) => {
   const popupContent = `
     <div class="building-popup">
       <h4>${name}</h4>
-      ${info.hours ? `<div class="bp-hours">🕐 ${info.hours}</div>` : ""}
+      ${info.hours ? `<div class="bp-hours">${info.hours}</div>` : ""}
       ${info.description ? `<div class="bp-desc">${info.description}</div>` : ""}
     </div>`;
 
@@ -860,12 +796,8 @@ window.addEventListener('beforeunload', () => {
   stopNavigation();
 });
 
-} // end initMap
+}
 
 </script>
 </body>
 </html>
-
-
-
-
