@@ -414,8 +414,8 @@ let userMarker = null;
 const entranceIcon = L.divIcon({
   className: "",
   html: `<div style="
-    width:6px;height:6px;
-    background: rgba(237, 171, 30, 0.4);
+    width:5px;height:5px;
+    background: rgba(237, 171, 30, 0.2);
     border:2px solid #fff;
     border-radius:50%;
     box-shadow:0 1px 3px rgba(0,0,0,0.6);
@@ -446,8 +446,8 @@ Object.entries(BUILDING_GROUPS).forEach(([name, _entrances]) => {
   const popupContent = `
     <div class="building-popup">
       <h4>${name}</h4>
-      ${info.hours ? `<div class="bp-hours">${info.hours}</div>` : ""}
       ${info.description ? `<div class="bp-desc">${info.description}</div>` : ""}
+	  ${info.hours ? `<div class="bp-hours">${info.hours}</div>` : ""}
     </div>`;
 
   L.marker(center, { icon: labelIcon, interactive: true })
