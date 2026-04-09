@@ -292,7 +292,7 @@ const BUILDINGS = [
 const BUILDING_INFO = {
   "Bookstore": {
     description: "Textbooks, supplies, and RCSJ merchandise.",
-    hours: "Mon–Thu: 9:00 AM – 4:00 PM<br>Fri: 9:00 AM – 1:00 PM<br>856-415-2234"
+    hours: "🕘 Mon–Thu: 9:00 AM – 4:00 PM<br>🕘 Fri: 9:00 AM – 1:00 PM<br>🕾 856-415-2234"
   },
   "Bus Stop": {
     description: "Served by NJ Transit and Rowan University Shuttle.",
@@ -300,31 +300,31 @@ const BUILDING_INFO = {
   },
   "Library": {
     description: "Research resources, study spaces, and computer access.",
-    hours: "Mon–Thu: 8:00 AM – 8:00 PM<br>Fri: 8:00 AM – 4:00 PM<br>Sat: 10:00 AM – 2:00 PM<br>856-415-2252"
+    hours: "🕘 Mon–Thu: 8:00 AM – 8:00 PM<br>🕘 Fri: 8:00 AM – 4:00 PM<br>🕘 Sat: 10:00 AM – 2:00 PM<br>🕾 856-415-2252"
   },
   "Roadrunner Cafe": {
     description: "Main dining café offering hot meals, snacks, and beverages.",
-    hours: "Mon–Fri: 8:30 AM - 2:30 PM"
+    hours: "🕘 Mon–Fri: 8:30 AM - 2:30 PM"
   },
   "Security": {
-    description: "856-464-5207<br>Call 911 for emergencies",
-    hours: "Mon-Fri: 7:00 AM - 11:00 PM"
+    description: "🕾 856-464-5207<br>Call 911 for emergencies",
+    hours: "🕘 Mon-Fri: 7:00 AM - 11:00 PM"
   },
   "Student Services": {
     description: "Admissions, financial aid, advising, testing, and registration.",
-    hours: "Mon, Tue, Thu, Fri: 9:00 AM – 5:00 PM<br>Wed: 9:00 AM – 7:00 PM​​"
+    hours: "🕘 Mon, Tue, Thu, Fri: 9:00 AM – 5:00 PM<br>🕘 Wed: 9:00 AM – 7:00 PM​​"
   },
   "Technical Support": {
-    description: "Supporting network, wifi, computers, mobile devices, classroom technology, and eLearning for students and staff.",
-    hours: "Mon-Thu: 8:00 AM – 8:00 PM<br>Fri: 7:30 AM – 5:00 PM<br>Sat: 8:00 AM - 1:00 PM​​<br>856-415-2298"
+    description: "eLearning, Instructional Technology, and Technical Support",
+    hours: "🕘 Mon-Thu: 8:00 AM – 8:00 PM<br>🕘 Fri: 7:30 AM – 5:00 PM<br>🕾 856-415-2298"
   },
   "Together Cafe Too": {
     description: "Additional campus café location offering coffee, snacks, and light fare.",
-    hours: "Mon–Fri: 8:00 AM - 2:30 PM​​"
+    hours: "🕘 Mon–Fri: 8:00 AM - 2:30 PM​​"
   },
   "Tutoring / Academic Support": {
     description: "Free tutoring and academic support services for all enrolled students.",
-    hours: "Mon–Thu: 9:00 AM – 7:00 PM<br>Fri: 9:00 AM – 3:00 PM<br>​856-681-6250"
+    hours: "🕘 Mon–Thu: 9:00 AM – 7:00 PM<br>🕘 Fri: 9:00 AM – 3:00 PM<br>​🕾 856-681-6250"
   }
 };
 
@@ -586,7 +586,7 @@ function showDirections(routeProps) {
   const miles = (meters / 1609.34).toFixed(2);
 
   let distText;
-  if (meters < 200) {
+  if (meters < 1000) {
     distText = `${feet} ft`;
   } else {
     distText = `${miles} mi`;
@@ -768,7 +768,7 @@ if (endMarker) {
 
   if (now - lastRerouteTime < 3000) return;
 
-  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 4) return;
+  if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 5) return;
 
   lastRerouteTime = now;
   lastRerouteCoords = coords;
