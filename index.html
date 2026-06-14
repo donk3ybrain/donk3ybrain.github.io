@@ -127,6 +127,17 @@
       font-size: 0.85rem;
     }
 
+    .leg-header {
+      font-weight: 600;
+      font-size: 0.85rem;
+      margin: 0.6rem 0 0.25rem 0;
+      color: var(--accent);
+    }
+
+    .leg-header:first-child {
+      margin-top: 0;
+    }
+
     .pulse {
       width: 16px;
       height: 16px;
@@ -287,8 +298,6 @@ const BUILDINGS = [
   { name: "Tutoring / Academic Support - Main", coords: [39.7807886, -75.1220539] }
 ];
 
-// ── Building info: descriptions & hours ──────────────────────────────────────
-// Edit these to update what appears when a building label is tapped/clicked.
 const BUILDING_INFO = {
   "Bookstore": {
     description: "Textbooks, supplies, and RCSJ merchandise.",
@@ -328,7 +337,6 @@ const BUILDING_INFO = {
   }
 };
 
-// ── Building center points (for label placement, independent of entrances) ────
 // Adjust these coords to reposition a label on the map.
 const BUILDING_CENTERS = {
   "Bookstore":                      [39.7809860469, -75.1219789088],
@@ -395,7 +403,6 @@ autoCenterToggle.addEventListener("change", () => {
 startSel.addEventListener("change", updateButton);
 endSel.addEventListener("change", updateButton);
 
-// Defer all Leaflet usage until the library has fully loaded
 window.addEventListener('load', initMap);
 function initMap() {
 
@@ -418,7 +425,7 @@ const entranceIcon = L.divIcon({
   className: "",
   html: `<div style="
     width:5px;height:5px;
-    background: rgba(237, 171, 30, 0.2);
+    background: rgba(237, 171, 30, 0.1);
     border:2px solid #fff;
     border-radius:50%;
     box-shadow:0 1px 3px rgba(0,0,0,0.6);
@@ -484,12 +491,17 @@ function isOnCampus([lat, lng]) {
   );
 }
 
-function nearestParkingLot(userCoords) {
+function closestParkingToBuilding(buildingName) {
+  const entrances = BUILDING_GROUPS[buildingName];
   let best = null;
 
-  PARKING_LOTS.forEach(lot => {
-    const d = dist(userCoords, lot.coords);
-    if (!best || d < best.d) best = { ...lot, d };
+  entrances.forEach(entrance => {
+    PARKING_LOTS.forEach(lot => {
+      const d = dist(entrance.coords, lot.coords);
+      if (!best || d < best.d) {
+        best = { lot, entrance, d };
+      }
+    });
   });
 
   return best;
@@ -554,47 +566,66 @@ const res = await fetch(
 let routeLayer = null;
 let startMarker = null;
 let endMarker = null;
+let lotMarker = null;
 
-function drawRoute(geojson) {
+let navMode = null;
+let pendingWalkTarget = null;
+
+const LOT_ARRIVAL_METERS = 30;
+const DEST_ARRIVAL_METERS = 10;
+
+function drawRoutes(routes, opts = {}) {
+  const { fitBounds = true } = opts;
+
   if (routeLayer) map.removeLayer(routeLayer);
 
-  routeLayer = L.geoJSON(geojson, {
-    style: { color: "#005696", weight: 5 }
-  }).addTo(map);
+  const layers = routes.map(r => L.geoJSON(r.geojson, { style: r.style }));
+  routeLayer = L.layerGroup(layers).addTo(map);
 
-  map.fitBounds(routeLayer.getBounds(), { padding: [40, 40] });
+  if (fitBounds) {
+    const bounds = L.latLngBounds([]);
+    layers.forEach(l => bounds.extend(l.getBounds()));
+    map.fitBounds(bounds, { padding: [40, 40] });
+  }
 }
 
-function showDirections(routeProps) {
+function formatDistance(meters) {
+  const feet = (meters * 3.28084).toFixed(0);
+  const miles = (meters / 1609.34).toFixed(2);
+  return meters < 1000 ? `${feet} ft` : `${miles} mi`;
+}
+
+function renderDirections(legs) {
   const meta = document.getElementById("meta");
   const stepsDiv = document.getElementById("steps");
 
-  const meters = routeProps.summary.distance;
-  const feet = (meters * 3.28084).toFixed(0);
-  const miles = (meters / 1609.34).toFixed(2);
-  const timeMin = Math.round(routeProps.summary.duration / 60) + " min";
+  let totalMeters = 0;
+  let totalSeconds = 0;
+  legs.forEach(leg => {
+    totalMeters += leg.routeProps.summary.distance;
+    totalSeconds += leg.routeProps.summary.duration;
+  });
 
-  meta.textContent = `${feet} ft • ${miles} mi • ${timeMin}`;
+  const timeMin = Math.round(totalSeconds / 60) + " min";
+  meta.textContent = `${formatDistance(totalMeters)} • ${timeMin}`;
 
   stepsDiv.innerHTML = "";
-  routeProps.segments[0].steps.forEach(s => {
-  const div = document.createElement("div");
-  div.className = "step";
 
-  const meters = s.distance;
-  const feet = (meters * 3.28084).toFixed(0);
-  const miles = (meters / 1609.34).toFixed(2);
+  legs.forEach(leg => {
+    if (legs.length > 1) {
+      const header = document.createElement("div");
+      header.className = "leg-header";
+      header.textContent = leg.title;
+      stepsDiv.appendChild(header);
+    }
 
-  let distText;
-  if (meters < 1000) {
-    distText = `${feet} ft`;
-  } else {
-    distText = `${miles} mi`;
-  }
-
-  div.textContent = `${s.instruction} (${distText})`;
-  stepsDiv.appendChild(div);
-});
+    leg.routeProps.segments[0].steps.forEach(s => {
+      const div = document.createElement("div");
+      div.className = "step";
+      div.textContent = `${s.instruction} (${formatDistance(s.distance)})`;
+      stepsDiv.appendChild(div);
+    });
+  });
 }
 
 function getUserLocation() {
@@ -680,22 +711,72 @@ if (startBuilding === "_current") {
 
   if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
-    const nearestLot = nearestParkingLot(endCoords);
+    const { lot: nearestLot, entrance: walkEntrance } = closestParkingToBuilding(endBuilding);
 
     if (startMarker) map.removeLayer(startMarker);
     if (endMarker) map.removeLayer(endMarker);
+    if (lotMarker) map.removeLayer(lotMarker);
+    if (userMarker) map.removeLayer(userMarker);
 
-    endMarker = L.marker(nearestLot.coords)
+    userMarker = L.marker(startCoords, { icon: userIcon }).addTo(map);
+
+    lotMarker = L.marker(nearestLot.coords)
       .addTo(map)
       .bindPopup(nearestLot.name);
 
-    const data = await getRoute(startCoords, nearestLot.coords, "driving-car");
+    endMarker = L.marker(walkEntrance.coords)
+      .addTo(map)
+      .bindPopup(endBuilding);
 
-    if (data.features && data.features.length > 0) {
-      const route = data.features[0];
-      drawRoute(route.geometry);
-      showDirections(route.properties);
+    const meta = document.getElementById("meta");
+    const stepsDiv = document.getElementById("steps");
+    meta.textContent = "";
+    stepsDiv.textContent = "Finding route...";
+
+    let driveData, walkData;
+    try {
+      [driveData, walkData] = await Promise.all([
+        getRoute(startCoords, nearestLot.coords, "driving-car"),
+        getRoute(nearestLot.coords, walkEntrance.coords, "foot-walking")
+      ]);
+    } catch (err) {
+      console.error(err);
+      stepsDiv.textContent = "Error contacting routing service.";
+      return;
     }
+
+    if (!driveData.features || driveData.features.length === 0 ||
+        !walkData.features || walkData.features.length === 0) {
+      stepsDiv.textContent = "No route found.";
+      return;
+    }
+
+    const driveRoute = driveData.features[0];
+    const walkRoute = walkData.features[0];
+
+    drawRoutes([
+      { geojson: driveRoute.geometry, style: { color: "#666", weight: 5, dashArray: "8, 8" } },
+      { geojson: walkRoute.geometry,  style: { color: "#005696", weight: 5 } }
+    ]);
+
+    renderDirections([
+      { title: `🚗 Drive to ${nearestLot.name}`, routeProps: driveRoute.properties },
+      { title: `🚶 Walk to ${endBuilding}`, routeProps: walkRoute.properties }
+    ]);
+
+    navMode = "driving";
+    pendingWalkTarget = { coords: walkEntrance.coords, name: endBuilding };
+    navigationActive = true;
+    lastRerouteTime = 0;
+    lastRerouteCoords = null;
+
+    if (watchId) navigator.geolocation.clearWatch(watchId);
+
+    watchId = navigator.geolocation.watchPosition(
+      pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
+      err => console.error("GPS error:", err),
+      { enableHighAccuracy: true, maximumAge: 1000 }
+    );
 
     return;
   }
@@ -729,45 +810,100 @@ if (startBuilding === "_current") {
   }
 
   const route = data.features[0];
-  drawRoute(route.geometry);
-  showDirections(route.properties);
+  drawRoutes([{ geojson: route.geometry, style: { color: "#005696", weight: 5 } }]);
+  renderDirections([{ routeProps: route.properties }]);
 
-  navigationActive = true;
+  if (startBuilding === "_current") {
+    navMode = "walking";
+    navigationActive = true;
+    lastRerouteTime = 0;
+    lastRerouteCoords = null;
 
-  if (watchId) navigator.geolocation.clearWatch(watchId);
+    if (watchId) navigator.geolocation.clearWatch(watchId);
 
-  watchId = navigator.geolocation.watchPosition(
-    pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
-    err => console.error("GPS error:", err),
-    { enableHighAccuracy: true, maximumAge: 1000 }
-  );
+    watchId = navigator.geolocation.watchPosition(
+      pos => handleLiveUpdate([pos.coords.latitude, pos.coords.longitude]),
+      err => console.error("GPS error:", err),
+      { enableHighAccuracy: true, maximumAge: 1000 }
+    );
+  } else {
+    stopNavigation();
+  }
 });
 
 async function handleLiveUpdate(coords) {
   if (!navigationActive || startSel.value !== "_current") return;
 
-
   if (userMarker) userMarker.setLatLng(coords);
   else userMarker = L.marker(coords, { icon: userIcon }).addTo(map);
 
- if (autoCenterEnabled) {
+  if (autoCenterEnabled) {
     map.setView(coords, map.getZoom(), { animate: true });
+  }
+
+  if (navMode === "driving") {
+    handleDrivingUpdate(coords);
+    return;
+  }
+
+  if (navMode === "walking") {
+    await handleWalkingUpdate(coords);
+  }
 }
 
-  const now = Date.now();
-  
-if (endMarker) {
+function handleDrivingUpdate(coords) {
+  if (!lotMarker) return;
+
+  const lot = lotMarker.getLatLng();
+  const d = dist(coords, [lot.lat, lot.lng]);
+
+  if (d < LOT_ARRIVAL_METERS) {
+    startWalkingLeg(coords);
+  }
+}
+
+async function startWalkingLeg(coords) {
+  if (!pendingWalkTarget) return;
+
+  navMode = "walking";
+
+  if (lotMarker) {
+    map.removeLayer(lotMarker);
+    lotMarker = null;
+  }
+
+  const stepsDiv = document.getElementById("steps");
+  stepsDiv.textContent = `Arrived at parking — finding walking route to ${pendingWalkTarget.name}...`;
+
+  try {
+    const data = await getRoute(coords, pendingWalkTarget.coords);
+    if (data.features && data.features.length > 0) {
+      const route = data.features[0];
+      drawRoutes([{ geojson: route.geometry, style: { color: "#005696", weight: 5 } }]);
+      renderDirections([{ routeProps: route.properties }]);
+    }
+  } catch (err) {
+    console.error("Failed to get walking route from parking lot:", err);
+    stepsDiv.textContent = "Arrived at parking. Error finding walking route.";
+  }
+  lastRerouteTime = Date.now();
+  lastRerouteCoords = coords;
+}
+
+async function handleWalkingUpdate(coords) {
+  if (endMarker) {
     const dest = endMarker.getLatLng();
     const d = dist(coords, [dest.lat, dest.lng]);
 
-    if (d < 10) {
-        stopNavigation();
-        return;
+    if (d < DEST_ARRIVAL_METERS) {
+      stopNavigation();
+      return;
     }
-}
+  }
+
+  const now = Date.now();
 
   if (now - lastRerouteTime < 3000) return;
-
   if (lastRerouteCoords && dist(coords, lastRerouteCoords) < 5) return;
 
   lastRerouteTime = now;
@@ -779,8 +915,11 @@ if (endMarker) {
     const data = await getRoute(coords, [dest.lat, dest.lng]);
     if (data.features && data.features.length > 0) {
       const route = data.features[0];
-      drawRoute(route.geometry);
-      showDirections(route.properties);
+      drawRoutes(
+        [{ geojson: route.geometry, style: { color: "#005696", weight: 5 } }],
+        { fitBounds: !autoCenterEnabled }
+      );
+      renderDirections([{ routeProps: route.properties }]);
     }
   } catch (err) {
     console.error("Auto-reroute failed:", err);
@@ -788,6 +927,8 @@ if (endMarker) {
 }
 function stopNavigation() {
   navigationActive = false;
+  navMode = null;
+  pendingWalkTarget = null;
   if (watchId) {
     navigator.geolocation.clearWatch(watchId);
     watchId = null;
@@ -798,7 +939,7 @@ window.addEventListener('beforeunload', () => {
   stopNavigation();
 });
 
-} // end initMap
+}
 
 </script>
 </body>
