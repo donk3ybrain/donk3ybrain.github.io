@@ -280,11 +280,11 @@ const BUILDINGS = [
   { name: "Medical Arts - E", coords: [39.78180729877389, -75.11955494669739] },
   { name: "Nursing & Health Professions - E", coords: [39.779229, -75.1205182] },
   { name: "Nursing & Health Professions - W", coords: [39.7790224, -75.1209711] },
-  { name: "Physical Education - W", coords: [39.78194374271483, -75.12268201827663] },
+  { name: "Physical Education - W", coords: [39.7819436448, -75.1226972811] },
   { name: "Physical Education - S", coords: [39.781781036, -75.1227098609] },
   { name: "Roadrunner Cafe - Main", coords: [39.78150828, -75.1208635] },
   { name: "Scott Hall - SE", coords: [39.7807653, -75.1224492] },
-  { name: "Scott Hall - NE", coords: [39.78114351590869, -75.12261310600854] },
+  { name: "Scott Hall - NE", coords: [39.7811138, -75.1226172] },
   { name: "Scott Hall - W", coords: [39.7806277, -75.1231511] },
   { name: "Scott Hall - S", coords: [39.7804118, -75.1225503] },
   { name: "Scott Hall - NW", coords: [39.781022, -75.1237656] },
@@ -403,6 +403,7 @@ autoCenterToggle.addEventListener("change", () => {
 startSel.addEventListener("change", updateButton);
 endSel.addEventListener("change", updateButton);
 
+// Defer all Leaflet usage until the library has fully loaded
 window.addEventListener('load', initMap);
 function initMap() {
 
@@ -425,7 +426,7 @@ const entranceIcon = L.divIcon({
   className: "",
   html: `<div style="
     width:5px;height:5px;
-    background: rgba(237, 171, 30, 0.1);
+    background: rgba(237, 171, 30, 0.2);
     border:2px solid #fff;
     border-radius:50%;
     box-shadow:0 1px 3px rgba(0,0,0,0.6);
@@ -482,6 +483,20 @@ const PARKING_LOTS = [
   { name: "Parking Lot G", coords: [39.778873, -75.122355] }
 ];
 
+// Precomputed walking-route lookup table (see generate-routes.js).
+// Populated from routes.json if present; left empty (and the live
+// routing fallbacks below take over) if it's missing or fails to load.
+let ROUTE_TABLE = { entrancePairs: {}, parkingForBuilding: {} };
+
+const routeTableReady = fetch("routes.json")
+  .then(res => (res.ok ? res.json() : null))
+  .then(data => {
+    if (data) ROUTE_TABLE = data;
+  })
+  .catch(err => {
+    console.warn("Could not load routes.json, will compute routes live:", err);
+  });
+
 function isOnCampus([lat, lng]) {
   return (
     lat <= CAMPUS_BOUNDS.north &&
@@ -491,7 +506,15 @@ function isOnCampus([lat, lng]) {
   );
 }
 
+// Returns the nearest parking lot to a building (and the building entrance
+// closest to that lot), plus a precomputed walking route between them if
+// available in ROUTE_TABLE.
 function closestParkingToBuilding(buildingName) {
+  const cached = ROUTE_TABLE.parkingForBuilding[buildingName];
+  if (cached) {
+    return { lot: cached.lot, entrance: cached.entrance, route: cached.route };
+  }
+
   const entrances = BUILDING_GROUPS[buildingName];
   let best = null;
 
@@ -504,7 +527,7 @@ function closestParkingToBuilding(buildingName) {
     });
   });
 
-  return best;
+  return { lot: best.lot, entrance: best.entrance, route: null };
 }
 
 function dist(a, b) {
@@ -523,19 +546,59 @@ function dist(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-function closestEntrances(startBuilding, endBuilding) {
+// Number of closest (by straight-line distance) entrance pairs to check
+// with an actual walking-route request when falling back to live routing.
+const ENTRANCE_CANDIDATE_COUNT = 3;
+
+// Picks the entrance pair between two buildings with the shortest *walking*
+// route, not just the shortest straight-line distance.
+//
+// First checks ROUTE_TABLE (precomputed by generate-routes.js) for this
+// building pair - in the common case this is a plain object lookup with no
+// network calls. If the pair isn't in the table (e.g. a new building was
+// added since the table was generated), falls back to a live comparison:
+// all entrance pairs are ranked by straight-line distance and the top
+// ENTRANCE_CANDIDATE_COUNT pairs each get a walking-route request, with the
+// shortest actual walking distance winning.
+async function closestEntrances(startBuilding, endBuilding) {
+  await routeTableReady;
+
+  const cached = ROUTE_TABLE.entrancePairs[`${startBuilding}|${endBuilding}`];
+  if (cached) {
+    return { start: cached.start, end: cached.end, route: cached.route };
+  }
+
   const starts = BUILDING_GROUPS[startBuilding];
   const ends = BUILDING_GROUPS[endBuilding];
 
-  let best = null;
-
+  const candidates = [];
   starts.forEach(s => {
     ends.forEach(e => {
-      const d = dist(s.coords, e.coords);
-      if (!best || d < best.d) {
-        best = { start: s, end: e, d };
-      }
+      candidates.push({ start: s, end: e, straightLine: dist(s.coords, e.coords) });
     });
+  });
+
+  candidates.sort((a, b) => a.straightLine - b.straightLine);
+  const topCandidates = candidates.slice(0, ENTRANCE_CANDIDATE_COUNT);
+
+  const routeResults = await Promise.all(
+    topCandidates.map(c =>
+      getRoute(c.start.coords, c.end.coords).catch(err => {
+        console.error("Routing failed for entrance candidate:", err);
+        return null;
+      })
+    )
+  );
+
+  let best = null;
+  topCandidates.forEach((c, i) => {
+    const data = routeResults[i];
+    const route = (data && data.features && data.features.length > 0) ? data.features[0] : null;
+    const walkingDistance = route ? route.properties.summary.distance : c.straightLine;
+
+    if (!best || walkingDistance < best.walkingDistance) {
+      best = { start: c.start, end: c.end, route, walkingDistance };
+    }
   });
 
   return best;
@@ -568,8 +631,11 @@ let startMarker = null;
 let endMarker = null;
 let lotMarker = null;
 
+// navMode tracks which leg of a trip is currently being navigated live.
+// 'driving'  -> en route to a parking lot, watching for arrival there
+// 'walking'  -> en route to the destination building on foot
 let navMode = null;
-let pendingWalkTarget = null;
+let pendingWalkTarget = null; // { coords: [lat, lng], name } - where to walk once parked
 
 const LOT_ARRIVAL_METERS = 30;
 const DEST_ARRIVAL_METERS = 10;
@@ -664,9 +730,17 @@ goBtn.addEventListener("click", async () => {
   const startBuilding = startSel.value;
   const endBuilding = endSel.value;
 
+  await routeTableReady;
+
+  const meta = document.getElementById("meta");
+  const stepsDiv = document.getElementById("steps");
+
   let startCoords;
   let startName;
-	
+  let endCoords;
+  let endName;
+  let precomputedRoute = null;
+
   if (startBuilding === "_current") {
     try {
       startCoords = await getUserLocation();
@@ -675,16 +749,7 @@ goBtn.addEventListener("click", async () => {
       alert(err);
       return;
     }
-  } else {
-    const { start } = closestEntrances(startBuilding, endBuilding);
-    startCoords = start.coords;
-    startName = start.name;
-  }
 
-  let endCoords;
-  let endName;
-
-  if (startBuilding === "_current") {
     const ends = BUILDING_GROUPS[endBuilding];
     let bestEnd = null;
 
@@ -697,21 +762,27 @@ goBtn.addEventListener("click", async () => {
     endName = bestEnd.name;
 
   } else {
-    const { end } = closestEntrances(startBuilding, endBuilding);
-    endCoords = end.coords;
-    endName = end.name;
+    meta.textContent = "";
+    stepsDiv.textContent = "Finding walking route...";
+
+    const best = await closestEntrances(startBuilding, endBuilding);
+    startCoords = best.start.coords;
+    startName = best.start.name;
+    endCoords = best.end.coords;
+    endName = best.end.name;
+    precomputedRoute = best.route;
   }
-  
-if (startBuilding === "_current") {
+
+  if (startBuilding === "_current") {
     map.setView(startCoords, 18);
     autoCenterBox.style.display = "block";
     autoCenterToggle.checked = false;
     autoCenterEnabled = false;
-}
+  }
 
   if (startBuilding === "_current" && !isOnCampus(startCoords)) {
 
-    const { lot: nearestLot, entrance: walkEntrance } = closestParkingToBuilding(endBuilding);
+    const { lot: nearestLot, entrance: walkEntrance, route: precomputedWalkRoute } = closestParkingToBuilding(endBuilding);
 
     if (startMarker) map.removeLayer(startMarker);
     if (endMarker) map.removeLayer(endMarker);
@@ -728,31 +799,45 @@ if (startBuilding === "_current") {
       .addTo(map)
       .bindPopup(endBuilding);
 
-    const meta = document.getElementById("meta");
-    const stepsDiv = document.getElementById("steps");
     meta.textContent = "";
     stepsDiv.textContent = "Finding route...";
 
-    let driveData, walkData;
+    // The drive-to-lot leg always depends on the user's live position, so
+    // it's fetched fresh. The lot-to-building walk is the same regardless
+    // of where the driver started, so use the precomputed version if
+    // ROUTE_TABLE has one and only fetch it live as a fallback.
+    let driveData;
+    let walkRoute = precomputedWalkRoute;
+
     try {
-      [driveData, walkData] = await Promise.all([
-        getRoute(startCoords, nearestLot.coords, "driving-car"),
-        getRoute(nearestLot.coords, walkEntrance.coords, "foot-walking")
-      ]);
+      if (walkRoute) {
+        driveData = await getRoute(startCoords, nearestLot.coords, "driving-car");
+      } else {
+        let walkData;
+        [driveData, walkData] = await Promise.all([
+          getRoute(startCoords, nearestLot.coords, "driving-car"),
+          getRoute(nearestLot.coords, walkEntrance.coords, "foot-walking")
+        ]);
+
+        if (!walkData.features || walkData.features.length === 0) {
+          stepsDiv.textContent = "No route found.";
+          return;
+        }
+
+        walkRoute = walkData.features[0];
+      }
     } catch (err) {
       console.error(err);
       stepsDiv.textContent = "Error contacting routing service.";
       return;
     }
 
-    if (!driveData.features || driveData.features.length === 0 ||
-        !walkData.features || walkData.features.length === 0) {
+    if (!driveData.features || driveData.features.length === 0) {
       stepsDiv.textContent = "No route found.";
       return;
     }
 
     const driveRoute = driveData.features[0];
-    const walkRoute = walkData.features[0];
 
     drawRoutes([
       { geojson: driveRoute.geometry, style: { color: "#666", weight: 5, dashArray: "8, 8" } },
@@ -790,26 +875,29 @@ if (startBuilding === "_current") {
 
   endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
 
-  const meta = document.getElementById("meta");
-  const stepsDiv = document.getElementById("steps");
   meta.textContent = "";
   stepsDiv.textContent = "Finding walking route...";
 
-  let data;
-  try {
-    data = await getRoute(startCoords, endCoords);
-  } catch (err) {
-    console.error(err);
-    stepsDiv.textContent = "Error contacting routing service.";
-    return;
+  let route = precomputedRoute;
+
+  if (!route) {
+    let data;
+    try {
+      data = await getRoute(startCoords, endCoords);
+    } catch (err) {
+      console.error(err);
+      stepsDiv.textContent = "Error contacting routing service.";
+      return;
+    }
+
+    if (!data.features || data.features.length === 0) {
+      stepsDiv.textContent = "No walking route found.";
+      return;
+    }
+
+    route = data.features[0];
   }
 
-  if (!data.features || data.features.length === 0) {
-    stepsDiv.textContent = "No walking route found.";
-    return;
-  }
-
-  const route = data.features[0];
   drawRoutes([{ geojson: route.geometry, style: { color: "#005696", weight: 5 } }]);
   renderDirections([{ routeProps: route.properties }]);
 
@@ -851,6 +939,9 @@ async function handleLiveUpdate(coords) {
   }
 }
 
+// Watches for arrival at the parking lot while navMode === 'driving'.
+// Once the user is within LOT_ARRIVAL_METERS of the lot, switch over to
+// the walking leg toward the destination building.
 function handleDrivingUpdate(coords) {
   if (!lotMarker) return;
 
@@ -862,6 +953,9 @@ function handleDrivingUpdate(coords) {
   }
 }
 
+// Transitions from the driving leg to the walking leg: drops the lot
+// marker, fetches a fresh walking route from the current position to the
+// destination, and re-triggers the normal on-campus walking flow.
 async function startWalkingLeg(coords) {
   if (!pendingWalkTarget) return;
 
@@ -886,10 +980,14 @@ async function startWalkingLeg(coords) {
     console.error("Failed to get walking route from parking lot:", err);
     stepsDiv.textContent = "Arrived at parking. Error finding walking route.";
   }
+
+  // Prevent handleWalkingUpdate from immediately re-fetching the same route.
   lastRerouteTime = Date.now();
   lastRerouteCoords = coords;
 }
 
+// Live walking navigation: detects arrival at the destination and
+// periodically reroutes as the user moves.
 async function handleWalkingUpdate(coords) {
   if (endMarker) {
     const dest = endMarker.getLatLng();
@@ -915,6 +1013,8 @@ async function handleWalkingUpdate(coords) {
     const data = await getRoute(coords, [dest.lat, dest.lng]);
     if (data.features && data.features.length > 0) {
       const route = data.features[0];
+      // Skip fitBounds when auto-center is on, so the reroute doesn't
+      // fight the user-centered view by zooming out to the new route.
       drawRoutes(
         [{ geojson: route.geometry, style: { color: "#005696", weight: 5 } }],
         { fitBounds: !autoCenterEnabled }
@@ -939,7 +1039,7 @@ window.addEventListener('beforeunload', () => {
   stopNavigation();
 });
 
-}
+} // end initMap
 
 </script>
 </body>
