@@ -1,0 +1,530 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Route Table Generator</title>
+
+<style>
+body{
+    font-family:Arial,Helvetica,sans-serif;
+    max-width:1000px;
+    margin:20px auto;
+    padding:20px;
+}
+
+h1{
+    margin-top:0;
+}
+
+button{
+    padding:10px 20px;
+    font-size:16px;
+    cursor:pointer;
+}
+
+input[type=file]{
+    margin:10px 0;
+}
+
+#log{
+    margin-top:20px;
+    border:1px solid #ccc;
+    padding:10px;
+    height:500px;
+    overflow:auto;
+    white-space:pre-wrap;
+    background:#f7f7f7;
+    font-family:Consolas,monospace;
+}
+
+.progress{
+    margin:10px 0;
+}
+</style>
+</head>
+<body>
+
+<h1>Campus Route Generator</h1>
+
+<p>Select the campus <strong>index.html</strong> containing BUILDINGS and PARKING_LOTS.</p>
+
+<input type="file" id="htmlFile" accept=".html">
+
+<div class="progress">
+    <button id="generateBtn">Generate routes.json</button>
+</div>
+
+<div id="log"></div>
+
+<script>
+
+const WORKER_URL =
+"https://broken-truth-6a9a.dan-5e4.workers.dev/route";
+
+const ENTRANCE_CANDIDATE_COUNT = 3;
+const DELAY_MS = 300;
+
+const logEl = document.getElementById("log");
+
+function log(msg)
+{
+    console.log(msg);
+    logEl.textContent += msg + "\n";
+    logEl.scrollTop = logEl.scrollHeight;
+}
+
+function sleep(ms)
+{
+    return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+function extractArray(html, varName)
+{
+    const re =
+        new RegExp(
+            `const\\s+${varName}\\s*=\\s*(\\[[\\s\\S]*?\\n\\]);`
+        );
+
+    const match = html.match(re);
+
+    if (!match)
+    {
+        throw new Error(
+            `Could not locate const ${varName} = [...]`
+        );
+    }
+
+    return new Function(`return ${match[1]};`)();
+}
+
+function baseName(name)
+{
+    return name.split(" - ")[0].trim();
+}
+
+function dist(a, b)
+{
+    const R = 6371e3;
+
+    const toRad = x =>
+        x * Math.PI / 180;
+
+    const dLat = toRad(b[0] - a[0]);
+    const dLng = toRad(b[1] - a[1]);
+
+    const lat1 = toRad(a[0]);
+    const lat2 = toRad(b[0]);
+
+    const h =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(lat1) *
+        Math.cos(lat2) *
+        Math.sin(dLng / 2) ** 2;
+
+    return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+async function getRoute(start, end, profile="foot-walking")
+{
+    const body =
+    {
+        coordinates:
+        [
+            [start[1], start[0]],
+            [end[1], end[0]]
+        ]
+    };
+
+    const response = await fetch(
+        `${WORKER_URL}?profile=${profile}`,
+        {
+            method:"POST",
+            headers:
+            {
+                "Content-Type":"application/json"
+            },
+            body:JSON.stringify(body)
+        }
+    );
+
+    if (!response.ok)
+    {
+        throw new Error(
+            `HTTP ${response.status}`
+        );
+    }
+
+    return response.json();
+}
+
+function slimRoute(data)
+{
+    if(
+        !data ||
+        !data.features ||
+        !data.features.length
+    )
+    {
+        return null;
+    }
+
+    const f = data.features[0];
+
+    return {
+        geometry:f.geometry,
+        properties:
+        {
+            summary:f.properties.summary,
+            segments:f.properties.segments
+        }
+    };
+}
+
+async function fetchRouteWithRetry(
+    start,
+    end,
+    profile,
+    label
+)
+{
+    for(let attempt=1; attempt<=2; attempt++)
+    {
+        try
+        {
+            const data =
+                await getRoute(
+                    start,
+                    end,
+                    profile
+                );
+
+            return slimRoute(data);
+        }
+        catch(err)
+        {
+            log(
+                `[attempt ${attempt}] ${label}: ${err.message}`
+            );
+
+            if(attempt < 2)
+            {
+                await sleep(1000);
+            }
+        }
+    }
+
+    log(`FAILED: ${label}`);
+
+    return null;
+}
+
+function downloadJSON(filename, data)
+{
+    const blob =
+        new Blob(
+            [JSON.stringify(data)],
+            {type:"application/json"}
+        );
+
+    const url =
+        URL.createObjectURL(blob);
+
+    const a =
+        document.createElement("a");
+
+    a.href = url;
+    a.download = filename;
+    a.click();
+
+    setTimeout(() =>
+    {
+        URL.revokeObjectURL(url);
+    }, 1000);
+}
+
+async function generateRoutes(html)
+{
+    const BUILDINGS =
+        extractArray(html, "BUILDINGS");
+
+    const PARKING_LOTS =
+        extractArray(html, "PARKING_LOTS");
+
+    const BUILDING_GROUPS = {};
+
+    BUILDINGS.forEach(b =>
+    {
+        const base =
+            baseName(b.name);
+
+        if(!BUILDING_GROUPS[base])
+        {
+            BUILDING_GROUPS[base] = [];
+        }
+
+        BUILDING_GROUPS[base].push(b);
+    });
+
+    const buildingNames =
+        Object.keys(BUILDING_GROUPS);
+
+    const entrancePairs = {};
+    const parkingForBuilding = {};
+
+    const orderedPairs = [];
+
+    for(const a of buildingNames)
+    {
+        for(const b of buildingNames)
+        {
+            if(a !== b)
+            {
+                orderedPairs.push([a,b]);
+            }
+        }
+    }
+
+    log(
+        `Building routes: ${orderedPairs.length}`
+    );
+
+    for(
+        let i=0;
+        i<orderedPairs.length;
+        i++
+    )
+    {
+        const [
+            startBuilding,
+            endBuilding
+        ] = orderedPairs[i];
+
+        const starts =
+            BUILDING_GROUPS[startBuilding];
+
+        const ends =
+            BUILDING_GROUPS[endBuilding];
+
+        const candidates = [];
+
+        starts.forEach(start =>
+        {
+            ends.forEach(end =>
+            {
+                candidates.push({
+                    start,
+                    end,
+                    straightLine:
+                        dist(
+                            start.coords,
+                            end.coords
+                        )
+                });
+            });
+        });
+
+        candidates.sort(
+            (a,b)=>
+            a.straightLine -
+            b.straightLine
+        );
+
+        const top =
+            candidates.slice(
+                0,
+                ENTRANCE_CANDIDATE_COUNT
+            );
+
+        let best = null;
+
+        for(const c of top)
+        {
+            const label =
+                `[${i+1}/${orderedPairs.length}] `
+                + `${c.start.name} -> `
+                + `${c.end.name}`;
+
+            log(`Routing ${label}`);
+
+            const route =
+                await fetchRouteWithRetry(
+                    c.start.coords,
+                    c.end.coords,
+                    "foot-walking",
+                    label
+                );
+
+            await sleep(DELAY_MS);
+
+            const walkingDistance =
+                route
+                ? route.properties.summary.distance
+                : c.straightLine;
+
+            if(
+                !best ||
+                walkingDistance <
+                best.walkingDistance
+            )
+            {
+                best =
+                {
+                    start:c.start,
+                    end:c.end,
+                    route,
+                    walkingDistance
+                };
+            }
+        }
+
+        entrancePairs[
+            `${startBuilding}|${endBuilding}`
+        ] =
+        {
+            start:
+            {
+                name:best.start.name,
+                coords:best.start.coords
+            },
+            end:
+            {
+                name:best.end.name,
+                coords:best.end.coords
+            },
+            route:best.route
+        };
+    }
+
+    log(
+        `Parking routes: ${buildingNames.length}`
+    );
+
+    for(
+        let i=0;
+        i<buildingNames.length;
+        i++
+    )
+    {
+        const buildingName =
+            buildingNames[i];
+
+        const entrances =
+            BUILDING_GROUPS[buildingName];
+
+        let best = null;
+
+        entrances.forEach(entrance =>
+        {
+            PARKING_LOTS.forEach(lot =>
+            {
+                const d =
+                    dist(
+                        entrance.coords,
+                        lot.coords
+                    );
+
+                if(!best || d < best.d)
+                {
+                    best =
+                    {
+                        lot,
+                        entrance,
+                        d
+                    };
+                }
+            });
+        });
+
+        const label =
+            `[${i+1}/${buildingNames.length}] `
+            + `${best.lot.name} -> `
+            + `${best.entrance.name}`;
+
+        log(`Routing ${label}`);
+
+        const route =
+            await fetchRouteWithRetry(
+                best.lot.coords,
+                best.entrance.coords,
+                "foot-walking",
+                label
+            );
+
+        await sleep(DELAY_MS);
+
+        parkingForBuilding[
+            buildingName
+        ] =
+        {
+            lot:
+            {
+                name:best.lot.name,
+                coords:best.lot.coords
+            },
+            entrance:
+            {
+                name:best.entrance.name,
+                coords:best.entrance.coords
+            },
+            route
+        };
+    }
+
+    const table =
+    {
+        entrancePairs,
+        parkingForBuilding
+    };
+
+    log("Downloading routes.json");
+
+    downloadJSON(
+        "routes.json",
+        table
+    );
+
+    log("Done.");
+}
+
+document
+.getElementById("generateBtn")
+.addEventListener(
+    "click",
+    async () =>
+    {
+        const file =
+            document
+            .getElementById("htmlFile")
+            .files[0];
+
+        if(!file)
+        {
+            alert(
+                "Select index.html first."
+            );
+            return;
+        }
+
+        logEl.textContent = "";
+
+        try
+        {
+            const html =
+                await file.text();
+
+            await generateRoutes(html);
+        }
+        catch(err)
+        {
+            log(
+                "ERROR: " +
+                err.message
+            );
+        }
+    }
+);
+
+</script>
+</body>
+</html>
