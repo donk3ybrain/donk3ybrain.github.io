@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Path Graph Editor</title>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+
+<style>
+body { margin:0; font-family:Arial,sans-serif; }
+#toolbar {
+  padding:10px;
+  background:#005696;
+  color:white;
+  display:flex;
+  gap:8px;
+  flex-wrap:wrap;
+  align-items:center;
+}
+button { padding:8px 12px; cursor:pointer; }
+#map { height: calc(100vh - 60px); }
+.status { margin-left:auto; font-weight:bold; }
+.node-label {
+  background:white;
+  border:1px solid #444;
+  padding:1px 3px;
+  font-size:11px;
+}
+</style>
+</head>
+<body>
+
+<div id="toolbar">
+  <button id="exportBtn">Export JSON</button>
+  <button id="clearBtn">Clear All</button>
+  <input type="file" id="importFile" accept=".json">
+  <span>Click map = create node. Click node then another node = connect.</span>
+  <span class="status" id="status">Ready</span>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+
+const map = L.map('map').setView([39.780833, -75.121667], 17);
+
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  maxZoom:19
+}).addTo(map);
+
+let nodes = [];
+let edges = [];
+let markers = {};
+let polylines = [];
+let selectedNode = null;
+let nextId = 1;
+
+function setStatus(msg){
+  document.getElementById('status').textContent = msg;
+}
+
+function redraw(){
+
+  Object.values(markers).forEach(m=>map.removeLayer(m));
+  polylines.forEach(p=>map.removeLayer(p));
+
+  markers = {};
+  polylines = [];
+
+  nodes.forEach(n=>{
+
+    const marker = L.circleMarker([n.lat,n.lng],{
+      radius:6
+    }).addTo(map);
+
+    marker.bindTooltip(n.id,{
+      permanent:true,
+      direction:'top',
+      className:'node-label'
+    });
+
+    marker.on('click',e=>{
+      L.DomEvent.stopPropagation(e);
+
+      if(selectedNode === null){
+        selectedNode = n.id;
+        setStatus("Selected " + n.id + " - click another node");
+        return;
+      }
+
+      if(selectedNode === n.id){
+        selectedNode = null;
+        setStatus("Selection cleared");
+        return;
+      }
+
+      const exists = edges.some(edge =>
+        (edge.from===selectedNode && edge.to===n.id) ||
+        (edge.from===n.id && edge.to===selectedNode)
+      );
+
+      if(!exists){
+        edges.push({
+          from:selectedNode,
+          to:n.id
+        });
+      }
+
+      selectedNode = null;
+      redraw();
+    });
+
+    marker.on('contextmenu',()=>{
+      nodes = nodes.filter(x=>x.id!==n.id);
+      edges = edges.filter(x=>x.from!==n.id && x.to!==n.id);
+      selectedNode = null;
+      redraw();
+    });
+
+    markers[n.id] = marker;
+  });
+
+  edges.forEach((e,index)=>{
+
+    const a = nodes.find(n=>n.id===e.from);
+    const b = nodes.find(n=>n.id===e.to);
+
+    if(!a || !b) return;
+
+    const line = L.polyline([
+      [a.lat,a.lng],
+      [b.lat,b.lng]
+    ]).addTo(map);
+
+    line.on('contextmenu',()=>{
+      edges.splice(index,1);
+      redraw();
+    });
+
+    polylines.push(line);
+  });
+
+  setStatus(`${nodes.length} nodes, ${edges.length} edges`);
+}
+
+map.on('click',e=>{
+
+  const node = {
+    id:"N" + nextId++,
+    lat:e.latlng.lat,
+    lng:e.latlng.lng
+  };
+
+  nodes.push(node);
+  redraw();
+});
+
+document.getElementById('exportBtn').addEventListener('click',()=>{
+
+  const data = {
+    nodes,
+    edges
+  };
+
+  const blob = new Blob(
+    [JSON.stringify(data,null,2)],
+    {type:'application/json'}
+  );
+
+  const url = URL.createObjectURL(blob);
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'campus-paths.json';
+  a.click();
+
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('clearBtn').addEventListener('click',()=>{
+
+  if(confirm('Delete all nodes and edges?')){
+    nodes = [];
+    edges = [];
+    nextId = 1;
+    selectedNode = null;
+    redraw();
+  }
+});
+
+document.getElementById('importFile').addEventListener('change', async e=>{
+
+  const file = e.target.files[0];
+  if(!file) return;
+
+  const data = JSON.parse(await file.text());
+
+  nodes = data.nodes || [];
+  edges = data.edges || [];
+
+  let maxId = 0;
+
+  nodes.forEach(n=>{
+    const m = parseInt((n.id||'').replace('N',''));
+    if(!isNaN(m) && m > maxId) maxId = m;
+  });
+
+  nextId = maxId + 1;
+
+  redraw();
+});
+
+redraw();
+
+</script>
+</body>
+</html>
