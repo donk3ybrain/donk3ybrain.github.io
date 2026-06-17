@@ -1,0 +1,674 @@
+<!DOCTYPE html>
+<!-- ©2026 donk3ybrain -->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Route Generator — RCSJ Campus Map</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <style>
+    :root {
+      --blue:   #005696;
+      --gold:   #edab1e;
+      --light:  #eef4fa;
+      --muted:  #6b8099;
+      --ok:     #1e9e5a;
+      --err:    #c0392b;
+      --border: #c5d8e8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, sans-serif;
+      background: var(--blue);
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem 4rem;
+    }
+
+    h1 {
+      font-size: 1.4rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.2rem;
+    }
+
+    .subtitle {
+      font-size: 0.85rem;
+      color: rgba(255,255,255,0.65);
+      margin-bottom: 2rem;
+    }
+
+    .card {
+      background: #fff;
+      color: #222;
+      border-radius: 12px;
+      padding: 1.5rem;
+      width: 100%;
+      max-width: 640px;
+      margin-bottom: 1rem;
+      box-shadow: 0 4px 24px rgba(0,0,0,0.25);
+    }
+
+    .card-title {
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--muted);
+      margin-bottom: 1rem;
+    }
+
+    /* ── Progress bar ────────────────────────────────────────────────────────── */
+
+    .progress-wrap {
+      background: var(--light);
+      border-radius: 999px;
+      height: 12px;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+    }
+
+    .progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--blue), var(--gold));
+      border-radius: 999px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    .progress-label {
+      font-size: 0.82rem;
+      color: var(--muted);
+      display: flex;
+      justify-content: space-between;
+    }
+
+    /* ── Stats grid ──────────────────────────────────────────────────────────── */
+
+    .stats {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 0.5rem;
+      margin-top: 1rem;
+    }
+
+    .stat {
+      background: var(--light);
+      border-radius: 8px;
+      padding: 0.6rem 0.5rem;
+      text-align: center;
+    }
+
+    .stat-num {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: var(--blue);
+      line-height: 1;
+    }
+
+    .stat-label {
+      font-size: 0.65rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 0.2rem;
+    }
+
+    /* ── Controls ────────────────────────────────────────────────────────────── */
+
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      flex-wrap: wrap;
+      margin-top: 1rem;
+    }
+
+    button {
+      padding: 0.5rem 1.1rem;
+      border-radius: 999px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: opacity 0.15s, border-color 0.15s;
+    }
+
+    button:disabled { opacity: 0.35; cursor: default; }
+
+    .btn-primary   { background: var(--blue);  color: #fff; }
+    .btn-secondary { background: #e0e9f2;       color: var(--blue); }
+    .btn-gold      { background: var(--gold);   color: #fff; }
+    .btn-danger    { background: #fee;          color: var(--err); border-color: #f5c6c6; }
+
+    button:not(:disabled):hover { opacity: 0.85; }
+
+    /* ── Delay slider ────────────────────────────────────────────────────────── */
+
+    .delay-row {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    input[type=range] { flex: 1; accent-color: var(--blue); }
+
+    /* ── Resume file input ───────────────────────────────────────────────────── */
+
+    .resume-row {
+      margin-top: 0.75rem;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+
+    .resume-row label {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      cursor: pointer;
+      background: var(--light);
+      border: 1.5px dashed var(--border);
+      border-radius: 8px;
+      padding: 0.5rem 0.9rem;
+      font-size: 0.82rem;
+      color: var(--blue);
+      font-weight: 500;
+      transition: background 0.15s;
+    }
+
+    .resume-row label:hover { background: #d9eaf8; }
+
+    .resume-row input[type=file] { display: none; }
+
+    #resume-status {
+      margin-top: 0.35rem;
+      font-size: 0.78rem;
+      color: var(--ok);
+      min-height: 1.1em;
+    }
+
+    /* ── Activity log ────────────────────────────────────────────────────────── */
+
+    .log-wrap {
+      background: #0d1b26;
+      color: #c8dde8;
+      border-radius: 8px;
+      padding: 0.75rem;
+      height: 210px;
+      overflow-y: auto;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: 0.74rem;
+      line-height: 1.55;
+    }
+
+    .log-wrap .ok  { color: #4cd9a0; }
+    .log-wrap .err { color: #f07070; }
+    .log-wrap .dim { color: #587080; }
+    .log-wrap .cur { color: #f5d06a; }
+
+    /* ── Phase badge ─────────────────────────────────────────────────────────── */
+
+    #phase-badge {
+      display: inline-block;
+      background: var(--gold);
+      color: #fff;
+      font-size: 0.7rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      border-radius: 999px;
+      padding: 0.15rem 0.65rem;
+      margin-bottom: 0.7rem;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>RCSJ Campus Route Generator</h1>
+  <p class="subtitle">Precomputes all walking routes into a lookup table so the map works without API calls.</p>
+
+  <!-- ── Progress card ───────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Progress</div>
+
+    <div id="phase-badge">Ready</div>
+
+    <div class="progress-wrap">
+      <div class="progress-fill" id="progress-fill"></div>
+    </div>
+    <div class="progress-label">
+      <span id="progress-text">0 of 441 routes</span>
+      <span id="eta-text">—</span>
+    </div>
+
+    <div class="stats">
+      <div class="stat"><div class="stat-num" id="stat-done">0</div>    <div class="stat-label">Done</div></div>
+      <div class="stat"><div class="stat-num" id="stat-skip">0</div>    <div class="stat-label">Skipped</div></div>
+      <div class="stat"><div class="stat-num" id="stat-api">0</div>     <div class="stat-label">API calls</div></div>
+      <div class="stat"><div class="stat-num" id="stat-err">0</div>     <div class="stat-label">Errors</div></div>
+    </div>
+  </div>
+
+  <!-- ── Controls card ───────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Controls</div>
+
+    <div class="controls">
+      <button class="btn-primary"    id="btn-start"    >▶ Start</button>
+      <button class="btn-secondary"  id="btn-pause"    disabled>⏸ Pause</button>
+      <button class="btn-danger"     id="btn-stop"     disabled>■ Stop</button>
+      <button class="btn-gold"       id="btn-download" >⬇ Download routes.json</button>
+    </div>
+
+    <div class="delay-row">
+      <span>Delay between calls:</span>
+      <input type="range" id="delay-slider" min="100" max="1500" value="300" step="50" />
+      <span id="delay-label" style="min-width:3.5rem">300 ms</span>
+    </div>
+
+    <div class="resume-row">
+      <label>
+        📂 Load existing routes.json to resume
+        <input type="file" id="file-input" accept=".json,application/json" />
+      </label>
+      <div id="resume-status"></div>
+    </div>
+  </div>
+
+  <!-- ── Log card ────────────────────────────────────────────────────────── -->
+  <div class="card">
+    <div class="card-title">Activity Log</div>
+    <div class="log-wrap" id="log"></div>
+  </div>
+
+<script>
+// ── Campus data (must stay in sync with index.html) ────────────────────────
+
+const BUILDINGS = [
+  { name: "Allied Health Center - Main",        coords: [39.782878,          -75.1230191]          },
+  { name: "Behavioral Sciences - E",            coords: [39.7796022,         -75.1209136]          },
+  { name: "Behavioral Sciences - W",            coords: [39.7795505,         -75.1216443]          },
+  { name: "Behavioral Sciences - S",            coords: [39.7794936,         -75.1210346]          },
+  { name: "Bookstore - Main",                   coords: [39.7809695688,      -75.1218239547]       },
+  { name: "Bus Stop - Main",                    coords: [39.77908331922,     -75.1236362179]       },
+  { name: "Business & Corporate - SE",          coords: [39.7799038,         -75.1195415]          },
+  { name: "Business & Corporate - SW",          coords: [39.7797477,         -75.1197277]          },
+  { name: "Business & Corporate - W",           coords: [39.7801545,         -75.1200946]          },
+  { name: "College Center - N",                 coords: [39.7815536,         -75.1212767]          },
+  { name: "College Center - S",                 coords: [39.7812599,         -75.1210383]          },
+  { name: "College Center - E",                 coords: [39.7813882,         -75.1208947]          },
+  { name: "College Center - W",                 coords: [39.7813314,         -75.1215967]          },
+  { name: "Education & Humanities - SE",        coords: [39.780637022792895, -75.11993200403573]   },
+  { name: "Education & Humanities - SW",        coords: [39.78071845901651,  -75.1205004889838]    },
+  { name: "Education & Humanities - NE",        coords: [39.7812582,         -75.119765]           },
+  { name: "Education & Humanities - NW",        coords: [39.78119354943093,  -75.12068271095362]   },
+  { name: "Education & Humanities - N",         coords: [39.78129277757268,  -75.12056613082852]   },
+  { name: "Health Sciences - NW",               coords: [39.779727487636855, -75.12525653609163]   },
+  { name: "Health Sciences - SW",               coords: [39.779601317,       -75.125094405]        },
+  { name: "Law & Justice - W",                  coords: [39.7815494,         -75.123452]           },
+  { name: "Law & Justice - E",                  coords: [39.78168391125,     -75.1227306679]       },
+  { name: "Library - NE",                       coords: [39.78081972333,     -75.121772056]        },
+  { name: "Library - W",                        coords: [39.7807886,         -75.1220539]          },
+  { name: "Library - SE",                       coords: [39.7805522,         -75.1216513]          },
+  { name: "Math & Engineering - E",             coords: [39.7799327,         -75.1219634]          },
+  { name: "Math & Engineering - W",             coords: [39.77973668357437,  -75.12230303275209]   },
+  { name: "Math & Engineering - N",             coords: [39.7801541,         -75.1224021]          },
+  { name: "Math & Engineering - S",             coords: [39.7796644,         -75.121962]           },
+  { name: "Medical Arts - W",                   coords: [39.7816786,         -75.1196886]          },
+  { name: "Medical Arts - E",                   coords: [39.78180729877389,  -75.11955494669739]   },
+  { name: "Nursing & Health Professions - E",   coords: [39.779229,          -75.1205182]          },
+  { name: "Nursing & Health Professions - W",   coords: [39.7790224,         -75.1209711]          },
+  { name: "Physical Education - W",             coords: [39.7819436448,      -75.1226972811]       },
+  { name: "Physical Education - S",             coords: [39.781781036,       -75.1227098609]       },
+  { name: "Roadrunner Cafe - Main",             coords: [39.78150828,        -75.1208635]          },
+  { name: "Scott Hall - SE",                    coords: [39.7807653,         -75.1224492]          },
+  { name: "Scott Hall - NE",                    coords: [39.7811138,         -75.1226172]          },
+  { name: "Scott Hall - W",                     coords: [39.7806277,         -75.1231511]          },
+  { name: "Scott Hall - S",                     coords: [39.7804118,         -75.1225503]          },
+  { name: "Scott Hall - NW",                    coords: [39.781022,          -75.1237656]          },
+  { name: "Security - Main",                    coords: [39.78240664169,     -75.1236159465]       },
+  { name: "Student Services - E",               coords: [39.780066,          -75.1207621]          },
+  { name: "Student Services - NW",              coords: [39.7802322,         -75.1213217]          },
+  { name: "Student Services - SW",              coords: [39.7801584,         -75.1213155]          },
+  { name: "Student Services - N",               coords: [39.7805153,         -75.1209092]          },
+  { name: "Technical Support - Main",           coords: [39.78071845901651,  -75.1205004889838]    },
+  { name: "Together Cafe Too - Main",           coords: [39.7805522,         -75.1216513]          },
+  { name: "Tutoring / Academic Support - Main", coords: [39.7807886,         -75.1220539]          },
+];
+
+const PARKING_LOTS = [
+  { name: "Parking Lot D1", coords: [39.78047070,  -75.1239952]  },
+  { name: "Parking Lot D2", coords: [39.779918758, -75.12325970] },
+  { name: "Parking Lot D3", coords: [39.77941683,  -75.12265084] },
+  { name: "Parking Lot D4", coords: [39.77899838,  -75.12175499] },
+  { name: "Parking Lot E1", coords: [39.779104958, -75.1195312]  },
+  { name: "Parking Lot E2", coords: [39.77979876,  -75.11871189] },
+  { name: "Parking Lot G",  coords: [39.778873,    -75.122355]   },
+];
+
+const ROUTE_API        = "https://broken-truth-6a9a.dan-5e4.workers.dev/route";
+const CANDIDATE_COUNT  = 3;   // entrance pairs to evaluate per building pair
+
+// ── Derived data ──────────────────────────────────────────────────────────────
+
+function baseName(n) { return n.split(" - ")[0].trim(); }
+
+const BUILDING_GROUPS = {};
+BUILDINGS.forEach(b => {
+  const g = baseName(b.name);
+  (BUILDING_GROUPS[g] ??= []).push(b);
+});
+const BUILDING_NAMES = Object.keys(BUILDING_GROUPS).sort();
+
+const TOTAL = BUILDING_NAMES.length * (BUILDING_NAMES.length - 1)  // entrance pairs
+            + BUILDING_NAMES.length;                                 // parking legs
+
+// ── State ─────────────────────────────────────────────────────────────────────
+
+let routeTable = { entrancePairs: {}, parkingForBuilding: {} };
+let isPaused   = false;
+let isStopped  = false;
+
+let statDone = 0, statSkip = 0, statApi = 0, statErr = 0;
+let startedAt = null;
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+
+function dist([lat1, lng1], [lat2, lng2]) {
+  const R = 6_371_000, toR = x => x * Math.PI / 180;
+  const dLat = toR(lat2 - lat1), dLng = toR(lng2 - lng1);
+  const a = Math.sin(dLat/2)**2
+          + Math.cos(toR(lat1)) * Math.cos(toR(lat2)) * Math.sin(dLng/2)**2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+async function fetchRoute(startCoords, endCoords, profile = "foot-walking") {
+  const res = await fetch(`${ROUTE_API}?profile=${profile}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      coordinates: [
+        [startCoords[1], startCoords[0]],
+        [endCoords[1],   endCoords[0]],
+      ],
+    }),
+  });
+  if (!res.ok) throw new Error(`HTTP ${res.status}`);
+  return res.json();
+}
+
+function slimRoute(feature) {
+  if (!feature) return null;
+  return {
+    geometry:   feature.geometry,
+    properties: { summary: feature.properties.summary, segments: feature.properties.segments },
+  };
+}
+
+function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function getDelay() { return parseInt(document.getElementById("delay-slider").value, 10); }
+
+// ── UI helpers ────────────────────────────────────────────────────────────────
+
+const logEl    = document.getElementById("log");
+const fillEl   = document.getElementById("progress-fill");
+const phaseEl  = document.getElementById("phase-badge");
+
+function log(msg, cls = "") {
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = msg;
+  logEl.appendChild(line);
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+function setPhase(txt) { phaseEl.textContent = txt; }
+
+function updateStats() {
+  document.getElementById("stat-done").textContent = statDone;
+  document.getElementById("stat-skip").textContent = statSkip;
+  document.getElementById("stat-api").textContent  = statApi;
+  document.getElementById("stat-err").textContent  = statErr;
+
+  const done = statDone + statSkip;
+  const pct  = TOTAL > 0 ? (done / TOTAL * 100).toFixed(1) : 0;
+  fillEl.style.width = pct + "%";
+  document.getElementById("progress-text").textContent = `${done} of ${TOTAL} routes`;
+
+  if (startedAt && done > 0) {
+    const elapsed = (Date.now() - startedAt) / 1000;
+    const rate    = done / elapsed;            // routes/sec
+    const rem     = (TOTAL - done) / rate;     // seconds remaining
+    const mm = Math.floor(rem / 60), ss = Math.round(rem % 60);
+    document.getElementById("eta-text").textContent =
+      done >= TOTAL ? "Complete ✓" : `~${mm}m ${ss}s remaining`;
+  }
+}
+
+function setRunning(running) {
+  document.getElementById("btn-start").disabled  =  running;
+  document.getElementById("btn-pause").disabled  = !running;
+  document.getElementById("btn-stop").disabled   = !running;
+}
+
+// ── Download ──────────────────────────────────────────────────────────────────
+
+function downloadJSON() {
+  const blob = new Blob([JSON.stringify(routeTable, null, 2)], { type: "application/json" });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement("a");
+  a.href     = url;
+  a.download = "routes.json";
+  a.click();
+  URL.revokeObjectURL(url);
+  log("⬇ routes.json downloaded.", "ok");
+}
+
+// ── Load existing file for resume ─────────────────────────────────────────────
+
+document.getElementById("file-input").addEventListener("change", e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const parsed = JSON.parse(ev.target.result);
+      if (!parsed.entrancePairs || !parsed.parkingForBuilding)
+        throw new Error("Missing expected keys");
+
+      routeTable = parsed;
+      const epOk = Object.values(parsed.entrancePairs).filter(v => v.route).length;
+      const pkOk = Object.values(parsed.parkingForBuilding).filter(v => v.route).length;
+      const msg  = `Loaded ${file.name}: ${epOk} entrance pairs + ${pkOk} parking routes already done.`;
+      document.getElementById("resume-status").textContent = msg;
+      log("📂 " + msg, "ok");
+    } catch (err) {
+      document.getElementById("resume-status").textContent = "⚠ Could not parse file: " + err.message;
+    }
+  };
+  reader.readAsText(file);
+});
+
+// ── Main generation loop ──────────────────────────────────────────────────────
+
+async function generate() {
+  isStopped = false;
+  isPaused  = false;
+  startedAt = Date.now();
+
+  // ── Phase 1: building → building entrance pairs ──────────────────────────
+
+  setPhase("Phase 1 — Building Pairs");
+  log("── Phase 1: building entrance pairs ──────────────────", "dim");
+
+  for (const startName of BUILDING_NAMES) {
+    for (const endName of BUILDING_NAMES) {
+      if (startName === endName) continue;
+
+      const key    = `${startName}|${endName}`;
+      const cached = routeTable.entrancePairs[key];
+
+      if (cached?.route) {
+        statSkip++;
+        updateStats();
+        continue;
+      }
+
+      // Wait while paused.
+      while (isPaused && !isStopped) await sleep(150);
+      if (isStopped) { log("■ Stopped.", "err"); setPhase("Stopped"); return; }
+
+      // Build ranked candidates.
+      const starts = BUILDING_GROUPS[startName];
+      const ends   = BUILDING_GROUPS[endName];
+      const cands  = [];
+      for (const s of starts)
+        for (const e of ends)
+          cands.push({ start: s, end: e, sl: dist(s.coords, e.coords) });
+      cands.sort((a, b) => a.sl - b.sl);
+
+      let best = null;
+
+      for (const c of cands.slice(0, CANDIDATE_COUNT)) {
+        try {
+          await sleep(getDelay());
+          const data = await fetchRoute(c.start.coords, c.end.coords);
+          statApi++;
+          const feat = data?.features?.[0];
+          if (!feat) continue;
+          const d = feat.properties.summary.distance;
+          if (!best || d < best.d)
+            best = { start: c.start, end: c.end, route: slimRoute(feat), d };
+        } catch (err) {
+          statErr++;
+          log(`  ✗ ${c.start.name} → ${c.end.name}: ${err.message}`, "err");
+        }
+      }
+
+      if (best) {
+        routeTable.entrancePairs[key] = { start: best.start, end: best.end, route: best.route };
+        log(`✓ ${key}  (${best.d.toFixed(0)} m)`, "ok");
+      } else {
+        // Save entrance selection even without a route so we can retry.
+        const fb = cands[0];
+        routeTable.entrancePairs[key] = { start: fb.start, end: fb.end, route: null };
+        log(`✗ ${key}  (no route)`, "err");
+      }
+
+      statDone++;
+      updateStats();
+    }
+  }
+
+  // ── Phase 2: parking lot → building entrance ─────────────────────────────
+
+  setPhase("Phase 2 — Parking Routes");
+  log("── Phase 2: parking lot → building entrance ──────────", "dim");
+
+  for (const buildingName of BUILDING_NAMES) {
+    const cached = routeTable.parkingForBuilding[buildingName];
+
+    if (cached?.route) {
+      statSkip++;
+      updateStats();
+      continue;
+    }
+
+    while (isPaused && !isStopped) await sleep(150);
+    if (isStopped) { log("■ Stopped.", "err"); setPhase("Stopped"); return; }
+
+    const entrances = BUILDING_GROUPS[buildingName];
+    const cands = [];
+    for (const entrance of entrances)
+      for (const lot of PARKING_LOTS)
+        cands.push({ entrance, lot, sl: dist(entrance.coords, lot.coords) });
+    cands.sort((a, b) => a.sl - b.sl);
+
+    let best = null;
+
+    for (const c of cands.slice(0, CANDIDATE_COUNT)) {
+      try {
+        await sleep(getDelay());
+        const data = await fetchRoute(c.lot.coords, c.entrance.coords);
+        statApi++;
+        const feat = data?.features?.[0];
+        if (!feat) continue;
+        const d = feat.properties.summary.distance;
+        if (!best || d < best.d)
+          best = { lot: c.lot, entrance: c.entrance, route: slimRoute(feat), d };
+      } catch (err) {
+        statErr++;
+        log(`  ✗ ${c.lot.name} → ${buildingName}: ${err.message}`, "err");
+      }
+    }
+
+    if (best) {
+      routeTable.parkingForBuilding[buildingName] = {
+        lot: best.lot, entrance: best.entrance, route: best.route,
+      };
+      log(`✓ ${buildingName}  via ${best.lot.name}  (${best.d.toFixed(0)} m)`, "ok");
+    } else {
+      const fb = cands[0];
+      routeTable.parkingForBuilding[buildingName] = {
+        lot: fb.lot, entrance: fb.entrance, route: null,
+      };
+      log(`✗ ${buildingName}  (no route)`, "err");
+    }
+
+    statDone++;
+    updateStats();
+  }
+
+  // ── Done ─────────────────────────────────────────────────────────────────
+
+  setPhase("Complete ✓");
+  setRunning(false);
+  log("", "");
+  log("All routes computed. Click Download to save routes.json.", "ok");
+  document.getElementById("btn-download").style.outline = "3px solid #edab1e";
+}
+
+// ── Button wiring ─────────────────────────────────────────────────────────────
+
+document.getElementById("btn-start").addEventListener("click", () => {
+  statDone = statSkip = statApi = statErr = 0;
+  updateStats();
+  setRunning(true);
+  generate().then(() => setRunning(false)).catch(err => {
+    log("Unexpected error: " + err.message, "err");
+    setRunning(false);
+  });
+});
+
+document.getElementById("btn-pause").addEventListener("click", () => {
+  isPaused = !isPaused;
+  document.getElementById("btn-pause").textContent = isPaused ? "▶ Resume" : "⏸ Pause";
+  log(isPaused ? "⏸ Paused." : "▶ Resumed.", "dim");
+  if (isPaused) setPhase("Paused");
+});
+
+document.getElementById("btn-stop").addEventListener("click", () => {
+  isStopped = true;
+  isPaused  = false;
+});
+
+document.getElementById("btn-download").addEventListener("click", downloadJSON);
+
+document.getElementById("delay-slider").addEventListener("input", e => {
+  document.getElementById("delay-label").textContent = e.target.value + " ms";
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+
+updateStats();
+log('Open your existing routes.json below to skip already-computed routes, then click Start.', "dim");
+</script>
+</body>
+</html>
