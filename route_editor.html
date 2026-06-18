@@ -1,8 +1,9 @@
 <!DOCTYPE html>
+<!-- 2026 donk3ybrain -->
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Route Editor — RCSJ Campus Map</title>
+  <title>Route Editor</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css"/>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
   <style>
@@ -26,8 +27,6 @@
       overflow: hidden;
     }
 
-    /* ── Header ───────────────────────────────────────────────────────────── */
-
     header {
       background: var(--blue);
       color: white;
@@ -47,11 +46,7 @@
       color: rgba(255,255,255,0.65);
     }
 
-    /* ── Layout ───────────────────────────────────────────────────────────── */
-
     .layout { display: flex; flex: 1; overflow: hidden; }
-
-    /* ── Sidebar ──────────────────────────────────────────────────────────── */
 
     .sidebar {
       width: 300px;
@@ -113,8 +108,6 @@
     }
     .filter-tab.active { background: var(--blue); color: white; }
 
-    /* ── Route list ───────────────────────────────────────────────────────── */
-
     #route-list { flex: 1; overflow-y: auto; }
 
     .group-header {
@@ -163,12 +156,8 @@
 
     .route-dist { font-size: 0.7rem; color: var(--muted); flex-shrink: 0; }
 
-    /* ── Map ──────────────────────────────────────────────────────────────── */
-
     .map-area { flex: 1; position: relative; overflow: hidden; }
     #map { width: 100%; height: 100%; }
-
-    /* ── Bottom toolbar ───────────────────────────────────────────────────── */
 
     #bottom-bar {
       position: absolute;
@@ -215,8 +204,6 @@
     .btn-light   { background: var(--light); color: var(--blue); }
     .btn-danger  { background: #fee; color: var(--err); }
 
-    /* ── Toast ────────────────────────────────────────────────────────────── */
-
     #toast {
       position: fixed;
       top: 3rem;
@@ -233,8 +220,6 @@
     }
     #toast.show { opacity: 1; }
 
-    /* ── Empty state ──────────────────────────────────────────────────────── */
-
     .empty-state {
       display: flex;
       flex-direction: column;
@@ -248,8 +233,6 @@
       text-align: center;
     }
     .empty-state .icon { font-size: 2rem; }
-
-    /* ── Leaflet overrides ────────────────────────────────────────────────── */
 
     .vertex-handle > div {
       width: 10px; height: 10px;
@@ -276,7 +259,6 @@
       box-shadow: 0 1px 5px rgba(0,0,0,0.4);
     }
 
-    /* Selected vertex — gold highlight */
     .vertex-selected > div {
       width: 12px; height: 12px;
       background: var(--gold);
@@ -286,7 +268,6 @@
       box-shadow: 0 0 0 2px var(--gold), 0 1px 5px rgba(0,0,0,0.4);
     }
 
-    /* Midpoint diamond — drag to insert a new vertex */
     .midpoint-handle > div {
       width: 9px; height: 9px;
       background: rgba(255,255,255,0.85);
@@ -302,7 +283,6 @@
       transform: rotate(45deg) scale(1.3);
     }
 
-    /* Inline popup for delete action */
     .vtx-popup .leaflet-popup-content-wrapper {
       padding: 0;
       border-radius: 8px;
@@ -331,7 +311,7 @@
 <body>
 
 <header>
-  <h1>🗺 RCSJ Route Editor</h1>
+  <h1>🗺 Route Editor</h1>
   <span id="header-stats">No file loaded</span>
   <button class="btn-gold" id="btn-download" disabled>⬇ Download routes.json</button>
 </header>
@@ -340,7 +320,6 @@
 
 <div class="layout">
 
-  <!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
   <div class="sidebar">
     <div class="sidebar-top">
       <label class="file-btn">
@@ -363,7 +342,6 @@
     </div>
   </div>
 
-  <!-- ── Map ─────────────────────────────────────────────────────────────── -->
   <div class="map-area">
     <div id="map"></div>
 
@@ -381,25 +359,19 @@
 </div>
 
 <script>
-// ── Routing API ───────────────────────────────────────────────────────────────
 
 const ROUTE_API = "https://broken-truth-6a9a.dan-5e4.workers.dev/route";
 
-// ── State ─────────────────────────────────────────────────────────────────────
-
 let routeTable  = { entrancePairs: {}, parkingForBuilding: {} };
-let allItems    = [];   // [{type:'pair'|'parking', key, label}]
-let filtered    = [];   // current filtered+searched subset
+let allItems    = [];
+let filtered    = [];
 let selectedIdx = -1;
 let isDirty     = false;
-let currentItem = null;      // the item currently shown on the map
-let selectedVtxIdx = null;   // index into workingCoords of the selected vertex (for Delete key)
+let currentItem = null;
+let selectedVtxIdx = null;  
 
-// Map state
 let map, polyline, vertexGroup, epStart, epEnd;
-let workingCoords = null; // mutable [lng,lat][] copy of the active route's geometry
-
-// ── Icons ─────────────────────────────────────────────────────────────────────
+let workingCoords = null;
 
 const ICON_SPEC = {
   'vertex-handle':   [10, 5],
@@ -413,15 +385,11 @@ const mkIcon = cls => {
   return L.divIcon({ className: cls, html: '<div></div>', iconSize: [size, size], iconAnchor: [anchor, anchor] });
 };
 
-// ── Map setup ─────────────────────────────────────────────────────────────────
-
 map = L.map('map').setView([39.7805, -75.1218], 17);
 L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
   attribution: '© OpenStreetMap contributors',
   maxZoom: 20,
 }).addTo(map);
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function haversine([lat1,lng1],[lat2,lng2]) {
   const R = 6_371_000, r = x => x * Math.PI / 180;
@@ -448,8 +416,6 @@ function toast(msg, ms = 2500) {
   toastTimer = setTimeout(() => el.classList.remove('show'), ms);
 }
 
-// ── Load file ─────────────────────────────────────────────────────────────────
-
 document.getElementById('file-input').addEventListener('change', e => {
   const file = e.target.files[0];
   if (!file) return;
@@ -473,8 +439,6 @@ document.getElementById('file-input').addEventListener('change', e => {
   reader.readAsText(file);
 });
 
-// ── Build item list ───────────────────────────────────────────────────────────
-
 function buildItems() {
   allItems = [];
   for (const key of Object.keys(routeTable.entrancePairs).sort())
@@ -482,8 +446,6 @@ function buildItems() {
   for (const key of Object.keys(routeTable.parkingForBuilding).sort())
     allItems.push({ type: 'parking', key, entry: () => routeTable.parkingForBuilding[key] });
 }
-
-// ── Filter + search ───────────────────────────────────────────────────────────
 
 let activeFilter = 'all';
 
@@ -510,8 +472,6 @@ function applyFilter() {
   renderList();
 }
 
-// ── Render list ───────────────────────────────────────────────────────────────
-
 function renderList() {
   const el = document.getElementById('route-list');
 
@@ -525,7 +485,6 @@ function renderList() {
     return;
   }
 
-  // Group by type
   const pairs   = filtered.filter(i => i.type === 'pair');
   const parking = filtered.filter(i => i.type === 'parking');
 
@@ -568,8 +527,6 @@ function renderList() {
   });
 }
 
-// ── Stats ─────────────────────────────────────────────────────────────────────
-
 function updateHeaderStats() {
   const ep   = Object.values(routeTable.entrancePairs);
   const pk   = Object.values(routeTable.parkingForBuilding);
@@ -580,21 +537,17 @@ function updateHeaderStats() {
     `${ok}/${total} routes  ·  ${nulls} null${isDirty ? '  ·  ● unsaved changes' : ''}`;
 }
 
-// ── Select ────────────────────────────────────────────────────────────────────
-
 function selectIdx(idx) {
   if (idx < 0 || idx >= filtered.length) return;
   selectedIdx = idx;
   renderList();
 
-  // Scroll selected row into view
   const row = document.querySelector(`.route-item[data-idx="${idx}"]`);
   row?.scrollIntoView({ block: 'nearest' });
 
   showRoute(filtered[idx]);
 }
 
-// Keyboard navigation + vertex delete
 document.addEventListener('keydown', e => {
   if (document.activeElement === document.getElementById('search-input')) return;
   if ((e.key === 'Delete' || e.key === 'Backspace') && selectedVtxIdx !== null) {
@@ -606,8 +559,6 @@ document.addEventListener('keydown', e => {
   if (e.key === 'ArrowUp')   { e.preventDefault(); selectIdx(selectedIdx - 1); }
 });
 
-// ── Clear map layers ──────────────────────────────────────────────────────────
-
 function clearMapLayers() {
   if (polyline)     { map.removeLayer(polyline);     polyline = null; }
   if (vertexGroup)  { map.removeLayer(vertexGroup);  vertexGroup = null; }
@@ -617,8 +568,6 @@ function clearMapLayers() {
   selectedVtxIdx = null;
   map.closePopup();
 }
-
-// ── Show route on map ─────────────────────────────────────────────────────────
 
 function showRoute(item) {
   clearMapLayers();
@@ -671,7 +620,6 @@ function showRoute(item) {
     return;
   }
 
-  // Draw route polyline
   workingCoords = entry.route.geometry.coordinates.map(c => [...c]); // deep copy [lng,lat]
 
   polyline = L.polyline(workingCoords.map(c => [c[1], c[0]]), {
@@ -680,7 +628,6 @@ function showRoute(item) {
 
   map.fitBounds(polyline.getBounds(), { padding: [50, 50] });
 
-  // Deselect vertex when clicking blank map
   map.on('click', () => {
     if (selectedVtxIdx !== null) { selectedVtxIdx = null; renderVertices(); }
   });
@@ -699,8 +646,6 @@ function updateInfoMeta(entry) {
     `${distStr}  ·  ${durStr}  ·  ${pts} pts  ·  drag ● move  ·  drag ◇ add  ·  right-click ● delete`;
 }
 
-// ── Vertex + midpoint handles ─────────────────────────────────────────────────
-
 function renderVertices() {
   if (vertexGroup) { map.removeLayer(vertexGroup); vertexGroup = null; }
   if (!workingCoords || !currentItem) return;
@@ -711,7 +656,6 @@ function renderVertices() {
     const isFirst = i === 0;
     const isLast  = i === workingCoords.length - 1;
 
-    // ── Interior vertex handle ─────────────────────────────────────────────
     if (!isFirst && !isLast) {
       const isSelected = i === selectedVtxIdx;
       const vm = L.marker([coord[1], coord[0]], {
@@ -720,14 +664,12 @@ function renderVertices() {
         zIndexOffset: 100,
       }).addTo(vertexGroup);
 
-      // Click to select / deselect
       vm.on('click', e => {
         L.DomEvent.stopPropagation(e);
         selectedVtxIdx = selectedVtxIdx === i ? null : i;
         renderVertices();
       });
 
-      // Drag to move
       vm.on('drag', e => {
         const ll = e.target.getLatLng();
         workingCoords[i] = [ll.lng, ll.lat];
@@ -736,10 +678,9 @@ function renderVertices() {
 
       vm.on('dragend', () => {
         saveWorkingCoords();
-        renderVertices(); // refresh midpoint positions
+        renderVertices();
       });
 
-      // Right-click to delete
       vm.on('contextmenu', e => {
         L.DomEvent.stopPropagation(e);
         const capturedIdx = i;
@@ -752,7 +693,6 @@ function renderVertices() {
       });
     }
 
-    // ── Midpoint diamond handle (between this point and the next) ──────────
     if (!isLast) {
       const next   = workingCoords[i + 1];
       const midLng = (coord[0] + next[0]) / 2;
@@ -767,7 +707,6 @@ function renderVertices() {
       let insertedIdx = null;
 
       mm.on('dragstart', () => {
-        // Insert new coord right after index i
         insertedIdx = i + 1;
         workingCoords.splice(insertedIdx, 0, [midLng, midLat]);
         polyline.setLatLngs(workingCoords.map(c => [c[1], c[0]]));
@@ -790,8 +729,6 @@ function renderVertices() {
   });
 }
 
-// ── Delete a vertex by index ──────────────────────────────────────────────────
-
 function deleteVertex(idx) {
   if (!workingCoords) return;
   if (workingCoords.length <= 2) {
@@ -801,7 +738,6 @@ function deleteVertex(idx) {
   workingCoords.splice(idx, 1);
   polyline.setLatLngs(workingCoords.map(c => [c[1], c[0]]));
 
-  // Keep selectedVtxIdx consistent
   if (selectedVtxIdx === idx)       selectedVtxIdx = null;
   else if (selectedVtxIdx > idx)    selectedVtxIdx--;
 
@@ -810,8 +746,6 @@ function deleteVertex(idx) {
   toast('Waypoint deleted.');
 }
 
-// ── Save working coords back into routeTable ──────────────────────────────────
-
 function saveWorkingCoords() {
   if (!currentItem || !workingCoords) return;
   const entry = currentItem.entry();
@@ -819,7 +753,6 @@ function saveWorkingCoords() {
 
   entry.route.geometry.coordinates = workingCoords.map(c => [...c]);
 
-  // Recalculate straight-line distance along the edited path
   const latlngs = workingCoords.map(c => [c[1], c[0]]);
   let dist = 0;
   for (let i = 1; i < latlngs.length; i++) dist += haversine(latlngs[i-1], latlngs[i]);
@@ -829,8 +762,6 @@ function saveWorkingCoords() {
   renderList();
   updateInfoMeta(entry);
 }
-
-// ── Re-fetch from API ─────────────────────────────────────────────────────────
 
 document.getElementById('btn-refetch').addEventListener('click', async () => {
   if (selectedIdx < 0) return;
@@ -875,8 +806,6 @@ document.getElementById('btn-refetch').addEventListener('click', async () => {
   }
 });
 
-// ── Use reverse route ─────────────────────────────────────────────────────────
-
 document.getElementById('btn-reverse').addEventListener('click', () => {
   if (selectedIdx < 0) return;
   const item  = filtered[selectedIdx];
@@ -902,7 +831,7 @@ document.getElementById('btn-reverse').addEventListener('click', () => {
     },
   };
 
-  // Swap start/end to match
+  <!-- 2026 donk3ybrain -->
   const tmpStart = entry.start ? { ...entry.start } : null;
   if (entry.start && revEntry.end)   entry.start = { ...revEntry.end };
   if (entry.end   && revEntry.start) entry.end   = { ...revEntry.start };
@@ -912,8 +841,6 @@ document.getElementById('btn-reverse').addEventListener('click', () => {
   showRoute(item);
   toast(`✓ Copied & reversed route from ${revKey}`);
 });
-
-// ── Clear route ───────────────────────────────────────────────────────────────
 
 document.getElementById('btn-clear').addEventListener('click', () => {
   if (selectedIdx < 0) return;
@@ -929,8 +856,6 @@ document.getElementById('btn-clear').addEventListener('click', () => {
   toast('Route cleared.');
 });
 
-// ── Download ──────────────────────────────────────────────────────────────────
-
 document.getElementById('btn-download').addEventListener('click', () => {
   const blob = new Blob([JSON.stringify(routeTable, null, 2)], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
@@ -941,8 +866,6 @@ document.getElementById('btn-download').addEventListener('click', () => {
   updateHeaderStats();
   toast('⬇ routes.json downloaded.');
 });
-
-// ── Dirty flag ────────────────────────────────────────────────────────────────
 
 function markDirty() {
   isDirty = true;
