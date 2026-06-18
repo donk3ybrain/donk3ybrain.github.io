@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <title>Route Generator — RCSJ Campus Map</title>
+  <title>Route Generator</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <style>
     :root {
@@ -62,8 +62,6 @@
       margin-bottom: 1rem;
     }
 
-    /* ── Progress bar ────────────────────────────────────────────────────────── */
-
     .progress-wrap {
       background: var(--light);
       border-radius: 999px;
@@ -86,8 +84,6 @@
       display: flex;
       justify-content: space-between;
     }
-
-    /* ── Stats grid ──────────────────────────────────────────────────────────── */
 
     .stats {
       display: grid;
@@ -118,8 +114,6 @@
       margin-top: 0.2rem;
     }
 
-    /* ── Controls ────────────────────────────────────────────────────────────── */
-
     .controls {
       display: flex;
       gap: 0.5rem;
@@ -146,8 +140,6 @@
 
     button:not(:disabled):hover { opacity: 0.85; }
 
-    /* ── Delay slider ────────────────────────────────────────────────────────── */
-
     .delay-row {
       display: flex;
       align-items: center;
@@ -158,8 +150,6 @@
     }
 
     input[type=range] { flex: 1; accent-color: var(--blue); }
-
-    /* ── Resume file input ───────────────────────────────────────────────────── */
 
     .resume-row {
       margin-top: 0.75rem;
@@ -193,8 +183,6 @@
       min-height: 1.1em;
     }
 
-    /* ── Activity log ────────────────────────────────────────────────────────── */
-
     .log-wrap {
       background: #0d1b26;
       color: #c8dde8;
@@ -212,8 +200,6 @@
     .log-wrap .dim { color: #587080; }
     .log-wrap .cur { color: #f5d06a; }
 
-    /* ── Phase badge ─────────────────────────────────────────────────────────── */
-
     #phase-badge {
       display: inline-block;
       background: var(--gold);
@@ -230,10 +216,9 @@
 </head>
 <body>
 
-  <h1>RCSJ Campus Route Generator</h1>
-  <p class="subtitle">Precomputes all walking routes into a lookup table so the map works without API calls.</p>
+  <h1>Route Generator</h1>
+  <p class="subtitle">Create a routes.json file containing all shortest path routes</p>
 
-  <!-- ── Progress card ───────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">Progress</div>
 
@@ -255,7 +240,6 @@
     </div>
   </div>
 
-  <!-- ── Controls card ───────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">Controls</div>
 
@@ -281,14 +265,12 @@
     </div>
   </div>
 
-  <!-- ── Log card ────────────────────────────────────────────────────────── -->
   <div class="card">
     <div class="card-title">Activity Log</div>
     <div class="log-wrap" id="log"></div>
   </div>
 
 <script>
-// ── Campus data (must stay in sync with index.html) ────────────────────────
 
 const BUILDINGS = [
   { name: "Allied Health Center - Main",        coords: [39.782878,          -75.1230191]          },
@@ -353,9 +335,7 @@ const PARKING_LOTS = [
 ];
 
 const ROUTE_API        = "https://broken-truth-6a9a.dan-5e4.workers.dev/route";
-const CANDIDATE_COUNT  = 3;   // entrance pairs to evaluate per building pair
-
-// ── Derived data ──────────────────────────────────────────────────────────────
+const CANDIDATE_COUNT  = 3; 
 
 function baseName(n) { return n.split(" - ")[0].trim(); }
 
@@ -366,10 +346,9 @@ BUILDINGS.forEach(b => {
 });
 const BUILDING_NAMES = Object.keys(BUILDING_GROUPS).sort();
 
-const TOTAL = BUILDING_NAMES.length * (BUILDING_NAMES.length - 1)  // entrance pairs
-            + BUILDING_NAMES.length;                                 // parking legs
+const TOTAL = BUILDING_NAMES.length * (BUILDING_NAMES.length - 1)
+            + BUILDING_NAMES.length;
 
-// ── State ─────────────────────────────────────────────────────────────────────
 
 let routeTable = { entrancePairs: {}, parkingForBuilding: {} };
 let isPaused   = false;
@@ -378,7 +357,6 @@ let isStopped  = false;
 let statDone = 0, statSkip = 0, statApi = 0, statErr = 0;
 let startedAt = null;
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 
 function dist([lat1, lng1], [lat2, lng2]) {
   const R = 6_371_000, toR = x => x * Math.PI / 180;
@@ -415,8 +393,6 @@ function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
 function getDelay() { return parseInt(document.getElementById("delay-slider").value, 10); }
 
-// ── UI helpers ────────────────────────────────────────────────────────────────
-
 const logEl    = document.getElementById("log");
 const fillEl   = document.getElementById("progress-fill");
 const phaseEl  = document.getElementById("phase-badge");
@@ -444,8 +420,8 @@ function updateStats() {
 
   if (startedAt && done > 0) {
     const elapsed = (Date.now() - startedAt) / 1000;
-    const rate    = done / elapsed;            // routes/sec
-    const rem     = (TOTAL - done) / rate;     // seconds remaining
+    const rate    = done / elapsed;
+    const rem     = (TOTAL - done) / rate;
     const mm = Math.floor(rem / 60), ss = Math.round(rem % 60);
     document.getElementById("eta-text").textContent =
       done >= TOTAL ? "Complete ✓" : `~${mm}m ${ss}s remaining`;
@@ -458,8 +434,6 @@ function setRunning(running) {
   document.getElementById("btn-stop").disabled   = !running;
 }
 
-// ── Download ──────────────────────────────────────────────────────────────────
-
 function downloadJSON() {
   const blob = new Blob([JSON.stringify(routeTable, null, 2)], { type: "application/json" });
   const url  = URL.createObjectURL(blob);
@@ -470,8 +444,6 @@ function downloadJSON() {
   URL.revokeObjectURL(url);
   log("⬇ routes.json downloaded.", "ok");
 }
-
-// ── Load existing file for resume ─────────────────────────────────────────────
 
 document.getElementById("file-input").addEventListener("change", e => {
   const file = e.target.files[0];
@@ -496,14 +468,10 @@ document.getElementById("file-input").addEventListener("change", e => {
   reader.readAsText(file);
 });
 
-// ── Main generation loop ──────────────────────────────────────────────────────
-
 async function generate() {
   isStopped = false;
   isPaused  = false;
   startedAt = Date.now();
-
-  // ── Phase 1: building → building entrance pairs ──────────────────────────
 
   setPhase("Phase 1 — Building Pairs");
   log("── Phase 1: building entrance pairs ──────────────────", "dim");
@@ -521,11 +489,9 @@ async function generate() {
         continue;
       }
 
-      // Wait while paused.
       while (isPaused && !isStopped) await sleep(150);
       if (isStopped) { log("■ Stopped.", "err"); setPhase("Stopped"); return; }
 
-      // Build ranked candidates.
       const starts = BUILDING_GROUPS[startName];
       const ends   = BUILDING_GROUPS[endName];
       const cands  = [];
@@ -566,8 +532,6 @@ async function generate() {
       updateStats();
     }
   }
-
-  // ── Phase 2: parking lot → building entrance ─────────────────────────────
 
   setPhase("Phase 2 — Parking Routes");
   log("── Phase 2: parking lot → building entrance ──────────", "dim");
@@ -626,16 +590,12 @@ async function generate() {
     updateStats();
   }
 
-  // ── Done ─────────────────────────────────────────────────────────────────
-
   setPhase("Complete ✓");
   setRunning(false);
   log("", "");
   log("All routes computed. Click Download to save routes.json.", "ok");
   document.getElementById("btn-download").style.outline = "3px solid #edab1e";
 }
-
-// ── Button wiring ─────────────────────────────────────────────────────────────
 
 document.getElementById("btn-start").addEventListener("click", () => {
   statDone = statSkip = statApi = statErr = 0;
@@ -664,8 +624,6 @@ document.getElementById("btn-download").addEventListener("click", downloadJSON);
 document.getElementById("delay-slider").addEventListener("input", e => {
   document.getElementById("delay-label").textContent = e.target.value + " ms";
 });
-
-// ── Init ──────────────────────────────────────────────────────────────────────
 
 updateStats();
 log('Open your existing routes.json below to skip already-computed routes, then click Start.', "dim");
