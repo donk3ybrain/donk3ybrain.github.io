@@ -253,8 +253,8 @@
 
     <div class="delay-row">
       <span>Delay between calls:</span>
-      <input type="range" id="delay-slider" min="100" max="1500" value="300" step="50" />
-      <span id="delay-label" style="min-width:3.5rem">300 ms</span>
+      <input type="range" id="delay-slider" min="600" max="3000" value="900" step="50" />
+      <span id="delay-label" style="min-width:3.5rem">900 ms</span>
     </div>
 
     <div class="resume-row">
@@ -293,7 +293,6 @@ const BUILDINGS = [
   { name: "Education & Humanities - NW",        coords: [39.78119354943093,  -75.12068271095362]   },
   { name: "Education & Humanities - N",         coords: [39.78129277757268,  -75.12056613082852]   },
   { name: "Health Sciences - NW",               coords: [39.779727487636855, -75.12525653609163]   },
-  { name: "Health Sciences - SW",               coords: [39.779601317,       -75.125094405]        },
   { name: "Law & Justice - W",                  coords: [39.7815494,         -75.123452]           },
   { name: "Law & Justice - E",                  coords: [39.78168391125,     -75.1227306679]       },
   { name: "Library - NE",                       coords: [39.78081972333,     -75.121772056]        },
@@ -628,7 +627,7 @@ document.getElementById("delay-slider").addEventListener("input", e => {
 });
 
 updateStats();
-log('Open your existing routes.json below to skip already-computed routes, then click Start.', "dim");
+log('Open your existing routes.json below to skip already-computed routes, then click Start.  If you start to receive "no route" errors, try increasing the delay, or briefly pause before continuing.', "dim");
 </script>
 </body>
 </html>
