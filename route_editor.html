@@ -587,12 +587,24 @@ function showRoute(item) {
       icon: mkIcon('ep-start'), draggable: true, zIndexOffset: 200,
       title: 'Start (drag to move)'
     }).addTo(map);
+    epStart.on('drag', e => {
+      const ll = e.target.getLatLng();
+      if (workingCoords) {
+        workingCoords[0] = [ll.lng, ll.lat];
+        polyline.setLatLngs(workingCoords.map(c => [c[1], c[0]]));
+      }
+    });
     epStart.on('dragend', e => {
       const ll = e.target.getLatLng();
       if (entry.start)    entry.start.coords    = [ll.lat, ll.lng];
       if (entry.entrance) entry.entrance.coords = [ll.lat, ll.lng];
-      markDirty();
-      toast('Endpoint moved — click Re-fetch to update the route.');
+      if (workingCoords) {
+        workingCoords[0] = [ll.lng, ll.lat];
+        saveWorkingCoords();
+      } else {
+        markDirty();
+      }
+      toast('Endpoint moved — click Re-fetch for an accurate route.');
     });
   }
 
@@ -601,12 +613,24 @@ function showRoute(item) {
       icon: mkIcon('ep-end'), draggable: true, zIndexOffset: 200,
       title: 'End (drag to move)'
     }).addTo(map);
+    epEnd.on('drag', e => {
+      const ll = e.target.getLatLng();
+      if (workingCoords) {
+        workingCoords[workingCoords.length - 1] = [ll.lng, ll.lat];
+        polyline.setLatLngs(workingCoords.map(c => [c[1], c[0]]));
+      }
+    });
     epEnd.on('dragend', e => {
       const ll = e.target.getLatLng();
       if (entry.end) entry.end.coords = [ll.lat, ll.lng];
       if (entry.lot) entry.lot.coords = [ll.lat, ll.lng];
-      markDirty();
-      toast('Endpoint moved — click Re-fetch to update the route.');
+      if (workingCoords) {
+        workingCoords[workingCoords.length - 1] = [ll.lng, ll.lat];
+        saveWorkingCoords();
+      } else {
+        markDirty();
+      }
+      toast('Endpoint moved — click Re-fetch for an accurate route.');
     });
   }
 
