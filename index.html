@@ -178,12 +178,26 @@
     }
 
     .building-label {
-      color: #444;
-      font-size: 0.7rem;
-      font-weight: 500;
-      white-space: nowrap;
+      width: 14px;
+      height: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: rgba(0, 86, 150, 0.45);
+      color: #fff;
+      border: 1px solid #edab1e;
+      border-radius: 50%;
+      font-size: 0.65rem;
+      font-weight: 700;
+      line-height: 1;
       cursor: pointer;
       pointer-events: auto;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+    }
+
+    .building-label:hover {
+      background: var(--accent);
+      color: #000;
     }
 
     .building-popup h4 {
@@ -419,7 +433,6 @@ autoCenterToggle.addEventListener("change", () => {
 startSel.addEventListener("change", updateButton);
 endSel.addEventListener("change", updateButton);
 
-// Defer all Leaflet usage until the library has fully loaded
 window.addEventListener('load', initMap);
 function initMap() {
 
@@ -437,15 +450,14 @@ const userIcon = L.divIcon({
 
 let userMarker = null;
 
-// ── Entrance dot markers ──────────────────────────────────────────────────────
 const entranceIcon = L.divIcon({
   className: "",
   html: `<div style="
     width:5px;height:5px;
-    background: rgba(237, 171, 30, 0.2);
-    border:2px solid #fff;
+    background: rgba(237, 171, 30, 0);
+    border:1px solid rgba(255,255,255,0);
     border-radius:50%;
-    box-shadow:0 1px 3px rgba(0,0,0,0.6);
+    box-shadow:0 1px 3px rgba(0,0,0,0);
   "></div>`,
   iconSize: [6, 6],
   iconAnchor: [4, 4]
@@ -457,7 +469,6 @@ Object.values(BUILDING_GROUPS).forEach(entrances => {
   });
 });
 
-// ── Building label markers (one per building, at defined center) ──────────────
 Object.entries(BUILDING_GROUPS).forEach(([name, _entrances]) => {
   const center = BUILDING_CENTERS[name];
   if (!center) return;
@@ -466,8 +477,9 @@ Object.entries(BUILDING_GROUPS).forEach(([name, _entrances]) => {
 
   const labelIcon = L.divIcon({
     className: "",
-    html: `<div class="building-label">${name}</div>`,
-    iconAnchor: [0, 0]
+    html: `<div class="building-label">?</div>`,
+    iconSize: [16, 16],
+    iconAnchor: [8, 8]
   });
 
   const popupContent = `
@@ -499,9 +511,6 @@ const PARKING_LOTS = [
   { name: "Parking Lot G", coords: [39.778873, -75.122355] }
 ];
 
-// Precomputed walking-route lookup table (see generate-routes.js).
-// Populated from routes.json if present; left empty (and the live
-// routing fallbacks below take over) if it's missing or fails to load.
 let ROUTE_TABLE = { entrancePairs: {}, parkingForBuilding: {} };
 
 const routeTableReady = fetch("routes.json")
@@ -522,9 +531,6 @@ function isOnCampus([lat, lng]) {
   );
 }
 
-// Returns the nearest parking lot to a building (and the building entrance
-// closest to that lot), plus a precomputed walking route between them if
-// available in ROUTE_TABLE.
 function closestParkingToBuilding(buildingName) {
   const cached = ROUTE_TABLE.parkingForBuilding[buildingName];
   if (cached) {
@@ -562,12 +568,6 @@ function dist(a, b) {
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
-// ── Route-snapping helpers ────────────────────────────────────────────────────
-// These let the app follow a precomputed route by trimming it to the user's
-// current GPS position instead of hitting the routing API every 3 seconds.
-
-// Projects point p onto segment a–b (all in [lat,lng]) and returns the
-// nearest point on that segment plus the interpolation parameter t ∈ [0,1].
 function nearestPointOnSegment(p, a, b) {
   const ap = [p[0]-a[0], p[1]-a[1]];
   const ab = [b[0]-a[0], b[1]-a[1]];
@@ -576,13 +576,11 @@ function nearestPointOnSegment(p, a, b) {
   return { point: [a[0]+t*ab[0], a[1]+t*ab[1]], t };
 }
 
-// Finds the closest point on a GeoJSON LineString to userCoords [lat,lng].
-// Returns { segmentIndex, snapPoint [lat,lng], distanceFromRoute (metres) }.
 function snapToRoute(userCoords, geometry) {
-  const coords = geometry.coordinates; // GeoJSON order: [lng,lat]
+  const coords = geometry.coordinates;
   let minDist = Infinity, minIdx = 0, snapPoint = null;
   for (let i = 0; i < coords.length - 1; i++) {
-    const a = [coords[i][1],   coords[i][0]];   // convert to [lat,lng]
+    const a = [coords[i][1],   coords[i][0]];
     const b = [coords[i+1][1], coords[i+1][0]];
     const { point } = nearestPointOnSegment(userCoords, a, b);
     const d = dist(userCoords, point);
@@ -591,19 +589,17 @@ function snapToRoute(userCoords, geometry) {
   return { segmentIndex: minIdx, snapPoint, distanceFromRoute: minDist };
 }
 
-// Returns a new GeoJSON LineString that starts at snapPoint and runs to
-// the original route's end (i.e., everything "ahead" of the user).
+
 function trimRouteGeometry(geometry, segmentIndex, snapPoint) {
   return {
     type: 'LineString',
     coordinates: [
-      [snapPoint[1], snapPoint[0]],             // back to [lng,lat]
+      [snapPoint[1], snapPoint[0]],
       ...geometry.coordinates.slice(segmentIndex + 1)
     ]
   };
 }
 
-// Sums the great-circle length of a GeoJSON LineString (metres).
 function computeRouteLength(geometry) {
   const c = geometry.coordinates;
   let total = 0;
@@ -611,19 +607,9 @@ function computeRouteLength(geometry) {
     total += dist([c[i][1],c[i][0]], [c[i+1][1],c[i+1][0]]);
   return total;
 }
-// with an actual walking-route request when falling back to live routing.
+
 const ENTRANCE_CANDIDATE_COUNT = 3;
 
-// Picks the entrance pair between two buildings with the shortest *walking*
-// route, not just the shortest straight-line distance.
-//
-// First checks ROUTE_TABLE (precomputed by generate-routes.js) for this
-// building pair - in the common case this is a plain object lookup with no
-// network calls. If the pair isn't in the table (e.g. a new building was
-// added since the table was generated), falls back to a live comparison:
-// all entrance pairs are ranked by straight-line distance and the top
-// ENTRANCE_CANDIDATE_COUNT pairs each get a walking-route request, with the
-// shortest actual walking distance winning.
 async function closestEntrances(startBuilding, endBuilding) {
   await routeTableReady;
 
@@ -695,13 +681,10 @@ let startMarker = null;
 let endMarker = null;
 let lotMarker = null;
 
-// navMode tracks which leg of a trip is currently being navigated live.
-// 'driving'  -> en route to a parking lot, watching for arrival there
-// 'walking'  -> en route to the destination building on foot
 let navMode = null;
-let pendingWalkTarget = null; // { coords: [lat, lng], name, route? } - where to walk once parked
-let currentRouteGeometry = null; // GeoJSON geometry of the active walking route (for snapping)
-let walkingSpeedMps       = 1.4; // m/s – calibrated from the most recent API response
+let pendingWalkTarget = null;
+let currentRouteGeometry = null;
+let walkingSpeedMps       = 1.4;
 
 const LOT_ARRIVAL_METERS = 30;
 const DEST_ARRIVAL_METERS = 10;
@@ -727,8 +710,6 @@ function formatDistance(meters) {
   return meters < 1000 ? `${feet} ft` : `${miles} mi`;
 }
 
-// Updates the meta bar from a (possibly trimmed) route geometry,
-// estimating time from the calibrated walking speed.
 function updateMetaFromGeometry(geometry) {
   const meters  = computeRouteLength(geometry);
   const seconds = meters / (walkingSpeedMps || 1.4);
@@ -877,10 +858,6 @@ goBtn.addEventListener("click", async () => {
     meta.textContent = "";
     stepsDiv.textContent = "Finding route...";
 
-    // The drive-to-lot leg always depends on the user's live position, so
-    // it's fetched fresh. The lot-to-building walk is the same regardless
-    // of where the driver started, so use the precomputed version if
-    // ROUTE_TABLE has one and only fetch it live as a fallback.
     let driveData;
     let walkRoute = precomputedWalkRoute;
 
@@ -953,17 +930,13 @@ goBtn.addEventListener("click", async () => {
 
   let route = precomputedRoute;
 
-  // ── GPS start on campus: look up a precomputed route via the nearest
-  //    building entrance instead of calling the routing API ─────────────────────
   if (!route && startBuilding === "_current" && isOnCampus(startCoords)) {
     await routeTableReady;
 
-    // Collect every known entrance except those belonging to the destination.
     const allEntrances = Object.entries(BUILDING_GROUPS)
       .filter(([name]) => name !== endBuilding)
       .flatMap(([name, entr]) => entr.map(e => ({ ...e, building: name })));
-
-    // Find the campus entrance that is closest to the user's GPS position.
+	  
     let nearestEntry = null;
     allEntrances.forEach(e => {
       const d = dist(startCoords, e.coords);
@@ -973,12 +946,11 @@ goBtn.addEventListener("click", async () => {
     if (nearestEntry) {
       const cached = ROUTE_TABLE.entrancePairs[`${nearestEntry.building}|${endBuilding}`];
       if (cached?.route) {
-        // Prepend the user's actual position so the line starts at their dot,
-        // then follows the precomputed path to the destination entrance.
+
         const augGeom = {
           type: 'LineString',
           coordinates: [
-            [startCoords[1], startCoords[0]],   // user pos in [lng,lat]
+            [startCoords[1], startCoords[0]],
             ...cached.route.geometry.coordinates
           ]
         };
@@ -989,7 +961,6 @@ goBtn.addEventListener("click", async () => {
     }
   }
 
-  // Place the destination marker (endCoords may have been updated above).
   endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
 
   if (!route) {
@@ -1010,7 +981,6 @@ goBtn.addEventListener("click", async () => {
     route = data.features[0];
   }
 
-  // Save geometry for live snapping; calibrate speed if the route came from the API.
   currentRouteGeometry = route.geometry;
   if (route.properties?.summary) {
     walkingSpeedMps = route.properties.summary.distance / route.properties.summary.duration;
@@ -1057,9 +1027,6 @@ async function handleLiveUpdate(coords) {
   }
 }
 
-// Watches for arrival at the parking lot while navMode === 'driving'.
-// Once the user is within LOT_ARRIVAL_METERS of the lot, switch over to
-// the walking leg toward the destination building.
 function handleDrivingUpdate(coords) {
   if (!lotMarker) return;
 
@@ -1071,9 +1038,6 @@ function handleDrivingUpdate(coords) {
   }
 }
 
-// Transitions from the driving leg to the walking leg: drops the lot
-// marker, uses the precomputed lot→building walk route if available,
-// and falls back to a live API call only when it isn't.
 async function startWalkingLeg(coords) {
   if (!pendingWalkTarget) return;
 
@@ -1086,7 +1050,6 @@ async function startWalkingLeg(coords) {
 
   const stepsDiv = document.getElementById("steps");
 
-  // Use the precomputed lot→building route when we have it (avoids an API call).
   if (pendingWalkTarget.route) {
     const route = pendingWalkTarget.route;
     currentRouteGeometry = route.geometry;
@@ -1118,23 +1081,12 @@ async function startWalkingLeg(coords) {
     stepsDiv.textContent = "Arrived at parking. Error finding walking route.";
   }
 
-  // Prevent handleWalkingUpdate from immediately re-fetching the same route.
   lastRerouteTime   = Date.now();
   lastRerouteCoords = coords;
 }
 
-// How far off the precomputed route (metres) before we call the API to reroute.
 const OFF_ROUTE_THRESHOLD = 25;
 
-// Live walking navigation: detects arrival at the destination and
-// keeps the on-screen route current as the user moves.
-//
-// Strategy (API-minimising):
-//   1. Snap the user's GPS position to the nearest point on the current route
-//      geometry and trim everything behind them — zero API calls.
-//   2. Only fall back to the routing API when the user drifts more than
-//      OFF_ROUTE_THRESHOLD metres from the precomputed path (i.e. they've
-//      gone off-route), and save the new geometry for future snapping.
 async function handleWalkingUpdate(coords) {
   if (endMarker) {
     const dest = endMarker.getLatLng();
@@ -1204,9 +1156,7 @@ function stopNavigation() {
 window.addEventListener('beforeunload', () => {
   stopNavigation();
 });
-
-} // end initMap
-
+}
 </script>
 </body>
 </html>
