@@ -79857,7 +79857,7 @@
   "parkingForBuilding": {
     "Allied Health Center": {
       "lot": {
-        "name": "Parking Lot D1",
+        "name": "Parking Lot Allied Health",
         "coords": [
           39.782838569612075,
           -75.12325510005607
@@ -80826,7 +80826,7 @@
     },
     "Health Sciences": {
       "lot": {
-        "name": "Parking Lot D2",
+        "name": "Parking Lot Health Sciences",
         "coords": [
           39.77958694049934,
           -75.12547728383166
@@ -82273,7 +82273,7 @@
     },
     "Security": {
       "lot": {
-        "name": "Parking Lot D1",
+        "name": "Parking Lot Security",
         "coords": [
           39.78256753217129,
           -75.12358902979976
