@@ -1018,6 +1018,14 @@ goBtn.addEventListener("click", async () => {
 
   endMarker = L.marker(endCoords).addTo(map).bindPopup(endName);
 
+  if (!route && startBuilding === "_current") {
+  try {
+    route = await routeViaNearestPathNode(startCoords, endBuilding);
+  } catch (err) {
+    console.error("Known-path routing failed, falling back to live route:", err);
+  }
+}
+
   if (!route) {
     let data;
     try {
