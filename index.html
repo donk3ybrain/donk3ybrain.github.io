@@ -932,10 +932,6 @@ goBtn.addEventListener("click", async () => {
 
   if (!route && startBuilding === "_current" && isOnCampus(startCoords)) {
     await routeTableReady;
-
-    const allEntrances = Object.entries(BUILDING_GROUPS)
-      .filter(([name]) => name !== endBuilding)
-      .flatMap(([name, entr]) => entr.map(e => ({ ...e, building: name })));
 	  
     let nearestEntry = null;
     allEntrances.forEach(e => {
