@@ -676,6 +676,65 @@ const res = await fetch(
   return res.json();
 }
 
+const PATH_SNAP_ENTRANCE_EXCLUSION_METERS = 15;
+
+function findNearestKnownPathNode(startCoords, endBuilding) {
+  const candidates = Object.entries(ROUTE_TABLE.entrancePairs)
+    .filter(([key, val]) => key.endsWith(`|${endBuilding}`) && val.route?.geometry);
+
+  let best = null;
+  candidates.forEach(([, val]) => {
+    const { segmentIndex, snapPoint, distanceFromRoute } = snapToRoute(startCoords, val.route.geometry);
+
+    if (dist(snapPoint, val.start.coords) < PATH_SNAP_ENTRANCE_EXCLUSION_METERS) return;
+
+    if (!best || distanceFromRoute < best.distanceFromRoute) {
+      best = { snapPoint, segmentIndex, distanceFromRoute, route: val.route };
+    }
+  });
+
+  return best;
+}
+
+async function routeViaNearestPathNode(startCoords, endBuilding) {
+  const node = findNearestKnownPathNode(startCoords, endBuilding);
+  if (!node) return null;
+
+  const connectorData = await getRoute(startCoords, node.snapPoint, "foot-walking").catch(() => null);
+  const connector = connectorData?.features?.[0];
+  if (!connector) return null;
+
+  const knownLeg = trimRouteGeometry(node.route.geometry, node.segmentIndex, node.snapPoint);
+
+  const mergedGeometry = {
+    type: "LineString",
+    coordinates: [
+      ...connector.geometry.coordinates,
+      ...knownLeg.coordinates.slice(1)
+    ]
+  };
+
+  const knownLegMeters = computeRouteLength(knownLeg);
+  const knownPace = node.route.properties.summary.distance / node.route.properties.summary.duration;
+  const knownLegSeconds = knownLegMeters / (knownPace || walkingSpeedMps);
+
+  return {
+    geometry: mergedGeometry,
+    properties: {
+      summary: {
+        distance: connector.properties.summary.distance + knownLegMeters,
+        duration: connector.properties.summary.duration + knownLegSeconds
+      },
+      segments: [{
+        steps: [
+          ...connector.properties.segments[0].steps,
+          { instruction: "Continue along the path", distance: knownLegMeters }
+        ]
+      }]
+    }
+  };
+}
+
 let routeLayer = null;
 let startMarker = null;
 let endMarker = null;
